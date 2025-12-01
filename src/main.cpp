@@ -20,9 +20,10 @@
 #include "config.h"
 #include "EnergySensor.h"
 #include "DisplayManager.h"
-#include "NetworkManager.h"
 #include "SafetyManager.h"
 #include "StateManager.h"
+#include "NetworkManager.h"
+
 
 // ============================================================================
 // GLOBAL OBJECTS
@@ -33,26 +34,6 @@ DisplayManager displayManager;
 NetworkManager networkManager;
 SafetyManager safetyManager;
 StateManager stateManager(energySensor, displayManager, networkManager, safetyManager);
-
-// ============================================================================
-// BLYNK HANDLERS
-// ============================================================================
-
-// Handle reset button from Blynk app
-BLYNK_WRITE(VPIN_RESET_BUTTON) {
-    int value = param.asInt();
-    
-    if (value == 1) {
-        #ifdef DEBUG_SERIAL
-            Serial.println("[Main] Blynk reset button pressed");
-        #endif
-        
-        stateManager.handleReset();
-        
-        // Reset button state in Blynk
-        Blynk.virtualWrite(VPIN_RESET_BUTTON, 0);
-    }
-}
 
 // ============================================================================
 // SETUP
@@ -83,6 +64,12 @@ void setup() {
     }
     
     networkManager.begin();
+    
+    // Register reset callback for Blynk button
+    networkManager.setResetCallback([]() {
+        stateManager.handleReset();
+    });
+    
     stateManager.begin();
     
     #ifdef DEBUG_SERIAL

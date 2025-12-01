@@ -1,4 +1,5 @@
 #include "StateManager.h"
+#include "NetworkManager.h"
 #include "config.h"
 
 StateManager::StateManager(EnergySensor& sensor, DisplayManager& display, 

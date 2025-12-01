@@ -1,3 +1,11 @@
+// ============================================================================
+// BLYNK CONFIGURATION (Must be defined BEFORE including Blynk library)
+// ============================================================================
+#define BLYNK_TEMPLATE_ID     "TMPL000000000"  // Replace with your Blynk Template ID
+#define BLYNK_TEMPLATE_NAME   "Energy Monitor"
+#define BLYNK_AUTH_TOKEN      "YOUR_BLYNK_AUTH_TOKEN_HERE"  // Replace with your auth token
+
+
 #ifndef CONFIG_H
 #define CONFIG_H
 
@@ -39,17 +47,12 @@
 #define SCREEN_ADDRESS        0x3C   // I2C address (0x3C or 0x3D)
 
 // ============================================================================
-// WIFI & BLYNK CONFIGURATION
+// WIFI CONFIGURATION
 // ============================================================================
 
 // WiFi Credentials
 #define WIFI_SSID             "YOUR_WIFI_SSID"
 #define WIFI_PASSWORD         "YOUR_WIFI_PASSWORD"
-
-// Blynk Configuration
-#define BLYNK_AUTH_TOKEN      "YOUR_BLYNK_AUTH_TOKEN"
-#define BLYNK_TEMPLATE_ID     "YOUR_TEMPLATE_ID"
-#define BLYNK_TEMPLATE_NAME   "Energy Monitor"
 
 // Blynk Virtual Pins
 #define VPIN_VOLTAGE          V0     // Voltage reading

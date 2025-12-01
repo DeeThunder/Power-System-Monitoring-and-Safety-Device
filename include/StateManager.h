@@ -4,8 +4,10 @@
 #include <Arduino.h>
 #include "EnergySensor.h"
 #include "DisplayManager.h"
-#include "NetworkManager.h"
 #include "SafetyManager.h"
+
+// Forward declaration to avoid including NetworkManager.h (which includes Blynk)
+class NetworkManager;
 
 /**
  * @brief System States (Finite State Machine)

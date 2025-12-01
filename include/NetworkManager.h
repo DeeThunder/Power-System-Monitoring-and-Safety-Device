@@ -3,7 +3,10 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include <BlynkSimpleEsp32.h>
+
+// Forward declaration of Blynk class (actual include is in .cpp file)
+class BlynkWifi;
+extern BlynkWifi Blynk;
 
 /**
  * @brief Network Manager Module
@@ -18,6 +21,12 @@ public:
      * @brief Initialize WiFi and Blynk
      */
     void begin();
+    
+    /**
+     * @brief Set callback for reset button (called from Blynk handler)
+     * @param callback Function to call when reset button is pressed
+     */
+    void setResetCallback(void (*callback)());
     
     /**
      * @brief Update network connections (non-blocking)

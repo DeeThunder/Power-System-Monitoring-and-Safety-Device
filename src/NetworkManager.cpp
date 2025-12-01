@@ -1,5 +1,32 @@
+// Blynk configuration must be defined BEFORE including Blynk library
+#ifndef BLYNK_TEMPLATE_ID
+    #define BLYNK_TEMPLATE_ID     "TMPL000000000"
+#endif
+#ifndef BLYNK_TEMPLATE_NAME
+    #define BLYNK_TEMPLATE_NAME   "Energy Monitor"
+#endif
+#ifndef BLYNK_AUTH_TOKEN
+    #define BLYNK_AUTH_TOKEN      "YOUR_BLYNK_AUTH_TOKEN_HERE"
+#endif
+
+#include <BlynkSimpleEsp32.h>  // Defines global Blynk object
+
 #include "NetworkManager.h"
 #include "config.h"
+
+// Callback for reset button (set from main.cpp)
+static void (*resetCallback)() = nullptr;
+
+// Blynk handler for reset button
+BLYNK_WRITE(VPIN_RESET_BUTTON) {
+    int value = param.asInt();
+    
+    if (value == 1 && resetCallback != nullptr) {
+        resetCallback();
+        // Reset button state in Blynk
+        Blynk.virtualWrite(VPIN_RESET_BUTTON, 0);
+    }
+}
 
 NetworkManager::NetworkManager() 
     : wifiConnected_(false), blynkConnected_(false), 
@@ -17,6 +44,10 @@ void NetworkManager::begin() {
     // Start WiFi connection (non-blocking)
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     lastWiFiAttempt_ = millis();
+}
+
+void NetworkManager::setResetCallback(void (*callback)()) {
+    resetCallback = callback;
 }
 
 void NetworkManager::update() {
