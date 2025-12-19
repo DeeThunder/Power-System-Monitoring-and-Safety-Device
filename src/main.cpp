@@ -41,7 +41,7 @@ StateManager stateManager(energySensor, displayManager, networkManager, safetyMa
 
 void setup() {
     // Initialize serial communication
-    #ifdef DEBUG_SERIAL
+    #ifdef APP_DEBUG
         Serial.begin(115200);
         delay(1000);  // Only delay in setup for serial stability
         Serial.println("\n\n========================================");
@@ -50,7 +50,7 @@ void setup() {
     #endif
     
     // Initialize all modules
-    #ifdef DEBUG_SERIAL
+    #ifdef APP_DEBUG
         Serial.println("[Main] Initializing modules...");
     #endif
     
@@ -58,7 +58,7 @@ void setup() {
     safetyManager.begin();
     
     if (!displayManager.begin()) {
-        #ifdef DEBUG_SERIAL
+        #ifdef APP_DEBUG
             Serial.println("[Main] WARNING: Display initialization failed!");
         #endif
     }
@@ -72,7 +72,7 @@ void setup() {
     
     stateManager.begin();
     
-    #ifdef DEBUG_SERIAL
+    #ifdef APP_DEBUG
         Serial.println("[Main] Initialization complete\n");
         Serial.println("Pin Configuration:");
         Serial.printf("  Voltage Sensor: GPIO %d\n", PIN_VOLTAGE_SENSOR);

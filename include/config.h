@@ -1,9 +1,9 @@
 // ============================================================================
 // BLYNK CONFIGURATION (Must be defined BEFORE including Blynk library)
 // ============================================================================
-#define BLYNK_TEMPLATE_ID     "TMPL000000000"  // Replace with your Blynk Template ID
-#define BLYNK_TEMPLATE_NAME   "Energy Monitor"
-#define BLYNK_AUTH_TOKEN      "YOUR_BLYNK_AUTH_TOKEN_HERE"  // Replace with your auth token
+#define BLYNK_TEMPLATE_ID     "TMPL2cEqaLW7h"  // Replace with your Blynk Template ID
+#define BLYNK_TEMPLATE_NAME   "Energy Monitoring and Safety Meter"
+#define BLYNK_AUTH_TOKEN      "JeQK-J5qRKHFBCm94mNhXztmnpja1udh"  // Replace with your auth token
 
 
 #ifndef CONFIG_H
@@ -51,8 +51,10 @@
 // ============================================================================
 
 // WiFi Credentials
-#define WIFI_SSID             "YOUR_WIFI_SSID"
-#define WIFI_PASSWORD         "YOUR_WIFI_PASSWORD"
+
+#include "secret.h"
+#define WIFI_SSID             SECRET_WIFI_SSID
+#define WIFI_PASSWORD         SECRET_WIFI_PASSWORD
 
 // Blynk Virtual Pins
 #define VPIN_VOLTAGE          V0     // Voltage reading
@@ -66,24 +68,27 @@
 // ============================================================================
 
 // Voltage Thresholds (in Volts)
-#define VOLTAGE_MAX           240.0  // Over-voltage trip threshold
-#define VOLTAGE_MIN           180.0  // Under-voltage trip threshold
+#define VOLTAGE_MAX           244.0  // Over-voltage trip threshold
+#define VOLTAGE_MIN           216.0  // Under-voltage trip threshold
 #define VOLTAGE_HYSTERESIS    5.0    // Hysteresis to prevent relay chattering
 
 // Current Thresholds (in Amperes)
-#define CURRENT_MAX           20.0   // Over-current trip threshold
-#define CURRENT_HYSTERESIS    1.0    // Hysteresis to prevent relay chattering
+#define CURRENT_MAX           30.0   // Over-current trip threshold
+#define CURRENT_HYSTERESIS    0.5    // Hysteresis to prevent relay chattering
 
 // ============================================================================
 // CALIBRATION CONSTANTS
 // ============================================================================
 
-// Voltage Sensor Calibration (Linear: actualValue = rawADC * slope + intercept)
-#define VOLTAGE_SLOPE         0.0537 // Adjust after calibration
-#define VOLTAGE_INTERCEPT     0.0    // Adjust after calibration
+// Voltage Sensor Calibration (ZMPT101B - RMS based)
+// The calibration factor converts RMS voltage reading to actual AC mains voltage
+// Typical range: 100-200 (depends on ZMPT101B burden resistor and transformer ratio)
+// To calibrate: Measure known AC voltage with multimeter, adjust factor in EnergySensor.cpp
+#define VOLTAGE_CALIBRATION_FACTOR  150.0  // Default starting point
+#define VOLTAGE_ZERO_POINT          2.5    // VCC/2 for ZMPT101B (adjust if needed)
 
 // Current Sensor Calibration (Linear: actualValue = rawADC * slope + intercept)
-#define CURRENT_SLOPE         0.0049 // Adjust after calibration
+#define CURRENT_SLOPE         0.0073 // Calibrated for 0-30A range (30/4095 ≈ 0.0073)
 #define CURRENT_INTERCEPT     0.0    // Adjust after calibration
 
 // ADC Configuration

@@ -9,7 +9,10 @@ SafetyManager::SafetyManager()
 void SafetyManager::begin() {
     // Configure relay pin
     pinMode(PIN_RELAY, OUTPUT);
-    resetRelay();  // Start with relay in safe state (de-energized)
+    
+    // CRITICAL: Start with relay OFF (de-energized) for safety
+    setRelayState(false);  // Relay OFF
+    relayTripped_ = false;
     
     // Configure RGB LED pins
     pinMode(PIN_RGB_RED, OUTPUT);
@@ -19,10 +22,11 @@ void SafetyManager::begin() {
     // Set initial RGB color (Blue = Initializing)
     setRGBStatus(RGB_BLUE);
     
-    #ifdef DEBUG_SERIAL
+    #ifdef APP_DEBUG
         Serial.println("[SafetyManager] Initialized");
         Serial.printf("[SafetyManager] Relay mode: %s\n", 
                       RELAY_ACTIVE_HIGH ? "Active HIGH" : "Active LOW");
+        Serial.println("[SafetyManager] Relay started OFF (safe state)");
     #endif
 }
 
@@ -42,7 +46,7 @@ bool SafetyManager::checkSafety(float voltage, float current) {
     // Check under-voltage
     if (checkUnderVoltage(voltage)) {
         lastFaultReason_ = "UNDER VOLTAGE";
-        #ifdef DEBUG_SERIAL
+        #ifdef APP_DEBUG
             Serial.printf("[SafetyManager] FAULT: Under-voltage detected (%.2fV)\n", voltage);
         #endif
         return false;
@@ -51,7 +55,7 @@ bool SafetyManager::checkSafety(float voltage, float current) {
     // Check over-current
     if (checkOverCurrent(current)) {
         lastFaultReason_ = "OVER CURRENT";
-        #ifdef DEBUG_SERIAL
+        #ifdef APP_DEBUG
             Serial.printf("[SafetyManager] FAULT: Over-current detected (%.2fA)\n", current);
         #endif
         return false;
@@ -67,7 +71,7 @@ void SafetyManager::tripRelay() {
         relayTripped_ = true;
         setRGBStatus(RGB_RED);
         
-        #ifdef DEBUG_SERIAL
+        #ifdef APP_DEBUG
             Serial.println("[SafetyManager] RELAY TRIPPED - Power disconnected");
         #endif
     }
@@ -77,7 +81,7 @@ void SafetyManager::resetRelay() {
     setRelayState(false);  // De-energize relay (connect power)
     relayTripped_ = false;
     
-    #ifdef DEBUG_SERIAL
+    #ifdef APP_DEBUG
         Serial.println("[SafetyManager] Relay reset - Power connected");
     #endif
 }

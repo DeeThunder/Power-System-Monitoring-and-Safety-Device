@@ -1,18 +1,8 @@
 // Blynk configuration must be defined BEFORE including Blynk library
-#ifndef BLYNK_TEMPLATE_ID
-    #define BLYNK_TEMPLATE_ID     "TMPL000000000"
-#endif
-#ifndef BLYNK_TEMPLATE_NAME
-    #define BLYNK_TEMPLATE_NAME   "Energy Monitor"
-#endif
-#ifndef BLYNK_AUTH_TOKEN
-    #define BLYNK_AUTH_TOKEN      "YOUR_BLYNK_AUTH_TOKEN_HERE"
-#endif
-
+#include "config.h"
 #include <BlynkSimpleEsp32.h>  // Defines global Blynk object
 
 #include "NetworkManager.h"
-#include "config.h"
 
 // Callback for reset button (set from main.cpp)
 static void (*resetCallback)() = nullptr;
@@ -21,6 +11,10 @@ static void (*resetCallback)() = nullptr;
 BLYNK_WRITE(VPIN_RESET_BUTTON) {
     int value = param.asInt();
     
+    #ifdef APP_DEBUG
+        Serial.printf("[NetworkManager] Reset button received: %d\n", value);
+    #endif
+
     if (value == 1 && resetCallback != nullptr) {
         resetCallback();
         // Reset button state in Blynk
@@ -30,13 +24,13 @@ BLYNK_WRITE(VPIN_RESET_BUTTON) {
 
 NetworkManager::NetworkManager() 
     : wifiConnected_(false), blynkConnected_(false), 
-      lastWiFiAttempt_(0), lastBlynkUpdate_(0) {
+      lastWiFiAttempt_(0), lastBlynkUpdate_(0), lastStateString_("BOOT") {
 }
 
 void NetworkManager::begin() {
     WiFi.mode(WIFI_STA);
     
-    #ifdef DEBUG_SERIAL
+    #ifdef APP_DEBUG
         Serial.println("[NetworkManager] Initializing...");
         Serial.printf("[NetworkManager] Connecting to WiFi: %s\n", WIFI_SSID);
     #endif
@@ -55,7 +49,7 @@ void NetworkManager::update() {
     if (WiFi.status() == WL_CONNECTED) {
         if (!wifiConnected_) {
             wifiConnected_ = true;
-            #ifdef DEBUG_SERIAL
+            #ifdef APP_DEBUG
                 Serial.println("[NetworkManager] WiFi connected!");
                 Serial.printf("[NetworkManager] IP Address: %s\n", 
                              WiFi.localIP().toString().c_str());
@@ -70,14 +64,22 @@ void NetworkManager::update() {
             Blynk.run();
             if (!blynkConnected_) {
                 blynkConnected_ = true;
-                #ifdef DEBUG_SERIAL
+                #ifdef APP_DEBUG
                     Serial.println("[NetworkManager] Blynk connected!");
                 #endif
+                
+                // Sync state immediately upon connection
+                if (lastStateString_.length() > 0) {
+                     Blynk.virtualWrite(VPIN_STATE, lastStateString_);
+                     #ifdef APP_DEBUG
+                        Serial.printf("[NetworkManager] Synced state to Blynk: %s\n", lastStateString_.c_str());
+                     #endif
+                }
             }
         } else {
             if (blynkConnected_) {
                 blynkConnected_ = false;
-                #ifdef DEBUG_SERIAL
+                #ifdef APP_DEBUG
                     Serial.println("[NetworkManager] Blynk disconnected");
                 #endif
             }
@@ -88,7 +90,7 @@ void NetworkManager::update() {
         if (wifiConnected_) {
             wifiConnected_ = false;
             blynkConnected_ = false;
-            #ifdef DEBUG_SERIAL
+            #ifdef APP_DEBUG
                 Serial.println("[NetworkManager] WiFi disconnected");
             #endif
         }
@@ -122,7 +124,7 @@ void NetworkManager::publishData(float voltage, float current, float power) {
     Blynk.virtualWrite(VPIN_CURRENT, current);
     Blynk.virtualWrite(VPIN_POWER, power);
     
-    #ifdef DEBUG_SERIAL
+    #ifdef APP_DEBUG
         Serial.printf("[NetworkManager] Published to Blynk: V=%.2f, I=%.2f, P=%.2f\n", 
                       voltage, current, power);
     #endif
@@ -134,23 +136,25 @@ void NetworkManager::sendAlert(const String& message) {
     // Send notification
     Blynk.logEvent("safety_alert", message);
     
-    #ifdef DEBUG_SERIAL
+    #ifdef APP_DEBUG
         Serial.printf("[NetworkManager] Alert sent: %s\n", message.c_str());
     #endif
 }
 
 void NetworkManager::updateState(const String& state) {
+    lastStateString_ = state;
+    
     if (!blynkConnected_) return;
     
     Blynk.virtualWrite(VPIN_STATE, state);
     
-    #ifdef DEBUG_SERIAL
+    #ifdef APP_DEBUG
         Serial.printf("[NetworkManager] State updated: %s\n", state.c_str());
     #endif
 }
 
 void NetworkManager::reconnectWiFi() {
-    #ifdef DEBUG_SERIAL
+    #ifdef APP_DEBUG
         Serial.println("[NetworkManager] Attempting WiFi reconnection...");
     #endif
     

@@ -1,5 +1,6 @@
 #include "EnergySensor.h"
 #include "config.h"
+#include <math.h>
 
 EnergySensor::EnergySensor() 
     : voltage_(0.0), current_(0.0), simulationMode_(true) {
@@ -15,7 +16,7 @@ void EnergySensor::begin() {
     
     #ifdef SIMULATION_MODE
         simulationMode_ = true;
-        #ifdef DEBUG_SERIAL
+        #ifdef APP_DEBUG
             Serial.println("[EnergySensor] Initialized in SIMULATION mode");
         #endif
     #else
@@ -88,19 +89,46 @@ float EnergySensor::applyCalibration(uint16_t rawValue, float slope, float inter
 }
 
 float EnergySensor::readVoltageSimulation() {
-    uint16_t rawADC = readADC(PIN_VOLTAGE_SENSOR);
-    float calibrated = applyCalibration(rawADC, VOLTAGE_SLOPE, VOLTAGE_INTERCEPT);
+    // ZMPT101B AC voltage sensor reading with proper RMS calculation
+    // The sensor outputs an AC waveform centered around 2.5V (VCC/2)
     
-    // For simulation: map ADC range to realistic voltage range (180V - 250V)
-    // This allows testing with potentiometer
-    float simulatedVoltage = map(rawADC, 0, ADC_RESOLUTION, 180, 250);
+    const int numSamples = 100;  // Sample over multiple AC cycles
+    const float vRef = 3.3;      // ESP32 ADC reference voltage
+    const float zeroPoint = 2.5; // ZMPT101B zero-point (VCC/2)
+    
+    float sumSquares = 0.0;
+    
+    // Sample the AC waveform
+    for (int i = 0; i < numSamples; i++) {
+        uint16_t rawADC = analogRead(PIN_VOLTAGE_SENSOR);
+        
+        // Convert ADC to voltage (0-3.3V)
+        float voltage = (rawADC / (float)ADC_RESOLUTION) * vRef;
+        
+        // Subtract zero-point offset to get AC component
+        float acVoltage = voltage - zeroPoint;
+        
+        // Square and accumulate
+        sumSquares += (acVoltage * acVoltage);
+        
+        delayMicroseconds(200);  // Small delay between samples (~50Hz sampling)
+    }
+    
+    // Calculate RMS of the AC component
+    float rmsVoltage = sqrt(sumSquares / numSamples);
+    
+    // Apply calibration factor to convert to actual AC mains voltage
+    // This factor needs to be calibrated with a known voltage source
+    // Typical range: 100-200 depending on ZMPT101B burden resistor
+    float calibrationFactor = 150.0;  // Adjust this based on your actual readings
+    float actualVoltage = rmsVoltage * calibrationFactor;
     
     #ifdef DEBUG_SERIAL
-        // Serial.printf("[EnergySensor] Voltage ADC: %d -> %.2fV (simulated)\n", 
-        //               rawADC, simulatedVoltage);
+        Serial.printf("[EnergySensor] Voltage RMS: %.4fV -> %.2fV AC\n", 
+                      rmsVoltage, actualVoltage);
     #endif
     
-    return simulatedVoltage;
+    return actualVoltage;
 }
 
 float EnergySensor::readCurrentSimulation() {

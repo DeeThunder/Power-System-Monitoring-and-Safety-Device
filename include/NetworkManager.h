@@ -76,6 +76,7 @@ private:
     bool blynkConnected_;
     unsigned long lastWiFiAttempt_;
     unsigned long lastBlynkUpdate_;
+    String lastStateString_; // Cache for last system state
     
     /**
      * @brief Connect to WiFi (non-blocking)

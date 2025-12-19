@@ -3,8 +3,7 @@
 
 #include <Arduino.h>
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <U8g2lib.h>
 
 /**
  * @brief Display Manager Module
@@ -60,24 +59,41 @@ public:
     bool isReady() const;
 
 private:
-    Adafruit_SSD1306* display_;
+    U8G2_SSD1306_128X64_NONAME_F_HW_I2C* display_;
     bool initialized_;
-    
+
     /**
-     * @brief Draw WiFi icon
+     * @brief Draw the top status bar (WiFi, Battery, Time)
+     * @param wifiConnected WiFi connection status
+     * @param blynkConnected Blynk connection status
+     */
+    void drawStatusBar(bool wifiConnected, bool blynkConnected);
+
+    /**
+     * @brief Draw signal bars for WiFi
      * @param x X position
      * @param y Y position
-     * @param connected Connection status
+     * @param rssi WiFi RSSI strength (or simply connected status)
      */
-    void drawWiFiIcon(int16_t x, int16_t y, bool connected);
-    
+    void drawSignalBars(int16_t x, int16_t y, int16_t rssi);
+
     /**
-     * @brief Draw Blynk icon
+     * @brief Draw battery icon
      * @param x X position
      * @param y Y position
-     * @param connected Connection status
+     * @param percentage Battery percentage (mocked)
      */
-    void drawBlynkIcon(int16_t x, int16_t y, bool connected);
+    void drawBatteryIcon(int16_t x, int16_t y, uint8_t percentage);
+
+    /**
+     * @brief Draw a measurement measurement card
+     * @param label Label (e.g., "VOLTAGE")
+     * @param value Value (e.g., 220.5)
+     * @param unit Unit (e.g., "V")
+     * @param y Y position
+     * @param large Whether to use large font
+     */
+    void drawMeasurement(const char* label, float value, const char* unit, int16_t y, bool large);
 };
 
 #endif // DISPLAY_MANAGER_H

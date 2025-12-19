@@ -13,7 +13,7 @@ StateManager::StateManager(EnergySensor& sensor, DisplayManager& display,
 void StateManager::begin() {
     setState(STATE_BOOT);
     
-    #ifdef DEBUG_SERIAL
+    #ifdef APP_DEBUG
         Serial.println("[StateManager] Initialized");
     #endif
 }
@@ -46,7 +46,7 @@ void StateManager::setState(SystemState newState) {
     onStateExit();
     onStateEnter();
     
-    #ifdef DEBUG_SERIAL
+    #ifdef APP_DEBUG
         Serial.printf("[StateManager] State transition: %s -> %s\n", 
                       getStateName().c_str(), getStateName().c_str());
     #endif
@@ -67,7 +67,7 @@ String StateManager::getStateName() const {
 }
 
 void StateManager::handleReset() {
-    #ifdef DEBUG_SERIAL
+    #ifdef APP_DEBUG
         Serial.println("[StateManager] Reset button pressed");
     #endif
     
@@ -88,11 +88,11 @@ void StateManager::handleReset() {
                 setState(STATE_OFFLINE_MODE);
             }
             
-            #ifdef DEBUG_SERIAL
+            #ifdef APP_DEBUG
                 Serial.println("[StateManager] System reset successful");
             #endif
         } else {
-            #ifdef DEBUG_SERIAL
+            #ifdef APP_DEBUG
                 Serial.println("[StateManager] Cannot reset - conditions still unsafe");
             #endif
         }
@@ -150,6 +150,13 @@ void StateManager::updateStateNormal() {
         display_.showData(sensor_.getVoltage(), sensor_.getCurrent(), 
                          sensor_.getPower(), network_.isWiFiConnected(), 
                          network_.isBlynkConnected());
+
+        // Serial Debug Output
+        #ifdef APP_DEBUG
+            Serial.printf("[Data] V: %.1fV | I: %.2fA | P: %.1fW | WiFi: %s\n", 
+                          sensor_.getVoltage(), sensor_.getCurrent(), sensor_.getPower(),
+                          network_.isWiFiConnected() ? "CONNECTED" : "DISCONNECTED");
+        #endif
     }
     
     // Publish to Blynk
@@ -225,29 +232,45 @@ void StateManager::updateStateOfflineMode() {
 }
 
 void StateManager::onStateEnter() {
-    #ifdef DEBUG_SERIAL
+    #ifdef APP_DEBUG
         Serial.printf("[StateManager] Entering state: %s\n", getStateName().c_str());
     #endif
     
     switch (currentState_) {
         case STATE_BOOT:
             display_.showStartup();
-            safety_.setRGBStatus(RGB_BLUE);
+            safety_.setRGBStatus(RGB_BLUE);  // Blue = Booting/No WiFi
+            // Relay stays OFF during boot
+            #ifdef APP_DEBUG
+                Serial.println("[StateManager] BOOT: RGB=Blue, Relay=OFF");
+            #endif
             break;
             
         case STATE_NORMAL:
-            safety_.setRGBStatus(RGB_GREEN);
+            safety_.setRGBStatus(RGB_GREEN);  // Green = Normal operation
+            safety_.resetRelay();  // Turn relay ON (safe to operate)
             network_.updateState("NORMAL");
+            #ifdef APP_DEBUG
+                Serial.println("[StateManager] NORMAL: RGB=Green, Relay=ON");
+            #endif
             break;
             
         case STATE_TRIP_PROTECTION:
-            safety_.setRGBStatus(RGB_RED);
+            safety_.setRGBStatus(RGB_RED);  // Red = Trip/Fault
+            safety_.tripRelay();  // Ensure relay is OFF
             network_.sendAlert(safety_.getLastFaultReason());
             network_.updateState("TRIP: " + safety_.getLastFaultReason());
+            #ifdef APP_DEBUG
+                Serial.println("[StateManager] TRIP: RGB=Red, Relay=OFF");
+            #endif
             break;
             
         case STATE_OFFLINE_MODE:
-            safety_.setRGBStatus(RGB_YELLOW);
+            safety_.setRGBStatus(RGB_BLUE);  // Blue = No WiFi (offline)
+            safety_.resetRelay();  // Turn relay ON (can operate offline)
+            #ifdef APP_DEBUG
+                Serial.println("[StateManager] OFFLINE: RGB=Blue, Relay=ON");
+            #endif
             break;
     }
 }

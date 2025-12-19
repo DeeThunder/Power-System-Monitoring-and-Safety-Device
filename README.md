@@ -13,7 +13,7 @@ This is a **Smart Energy Monitoring and Safety System** designed for residential
 ✅ **Offline Operation**: Continues monitoring and protection even without WiFi  
 ✅ **Visual Status**: RGB LED indicates system state  
 ✅ **Modular Architecture**: Clean C++ design with separated concerns  
-✅ **Non-blocking**: Uses millis() timers, no delay() calls  
+✅ **Non-blocking**: Uses millis() timers, no delay() calls
 
 ## Hardware Components
 
@@ -28,16 +28,16 @@ This is a **Smart Energy Monitoring and Safety System** designed for residential
 
 ## Pin Configuration
 
-| Component | GPIO Pin | Notes |
-|-----------|----------|-------|
-| Voltage Sensor | GPIO 34 | ADC1_CH6 |
-| Current Sensor | GPIO 35 | ADC1_CH7 |
-| Relay | GPIO 26 | Configurable Active HIGH/LOW |
-| RGB LED (Red) | GPIO 25 | PWM capable |
-| RGB LED (Green) | GPIO 33 | PWM capable |
-| RGB LED (Blue) | GPIO 32 | PWM capable |
-| OLED SDA | GPIO 21 | I2C Data |
-| OLED SCL | GPIO 22 | I2C Clock |
+| Component       | GPIO Pin | Notes                        |
+| --------------- | -------- | ---------------------------- |
+| Voltage Sensor  | GPIO 34  | ADC1_CH6                     |
+| Current Sensor  | GPIO 35  | ADC1_CH7                     |
+| Relay           | GPIO 26  | Configurable Active HIGH/LOW |
+| RGB LED (Red)   | GPIO 25  | PWM capable                  |
+| RGB LED (Green) | GPIO 33  | PWM capable                  |
+| RGB LED (Blue)  | GPIO 32  | PWM capable                  |
+| OLED SDA        | GPIO 21  | I2C Data                     |
+| OLED SCL        | GPIO 22  | I2C Clock                    |
 
 ## Software Architecture
 
@@ -101,6 +101,8 @@ pio device monitor
 ```
 
 ## Blynk Setup
+
+> **[Click here for the detailed Step-by-Step Blynk Setup Guide](BLYNK_SETUP.md)**
 
 ### Virtual Pins
 
