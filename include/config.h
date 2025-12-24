@@ -35,6 +35,7 @@
 // ============================================================================
 
 // Relay Configuration
+// NOTE: Using NO (Normally Open) pin - relay must be energized to close contact and allow power flow
 #define RELAY_ACTIVE_HIGH     true   // Set to false if relay is Active LOW
 
 // RGB LED Configuration
@@ -68,9 +69,10 @@
 // ============================================================================
 
 // Voltage Thresholds (in Volts)
-#define VOLTAGE_MAX           244.0  // Over-voltage trip threshold
+#define VOLTAGE_MAX           250.0  // Over-voltage trip threshold
 #define VOLTAGE_MIN           216.0  // Under-voltage trip threshold
 #define VOLTAGE_HYSTERESIS    5.0    // Hysteresis to prevent relay chattering
+#define VOLTAGE_POWER_PRESENT_THRESHOLD 100.0  // Below this = power is off (don't trip)
 
 // Current Thresholds (in Amperes)
 #define CURRENT_MAX           30.0   // Over-current trip threshold
@@ -84,12 +86,14 @@
 // The calibration factor converts RMS voltage reading to actual AC mains voltage
 // Typical range: 100-200 (depends on ZMPT101B burden resistor and transformer ratio)
 // To calibrate: Measure known AC voltage with multimeter, adjust factor in EnergySensor.cpp
-#define VOLTAGE_CALIBRATION_FACTOR  150.0  // Default starting point
-#define VOLTAGE_ZERO_POINT          2.5    // VCC/2 for ZMPT101B (adjust if needed)
+#define VOLTAGE_CALIBRATION_FACTOR  556.0  // Adjusted for ~223V reading -> 228V
+#define VOLTAGE_ZERO_POINT          2.19   // VCC/2 for ZMPT101B (adjust if needed)
+#define VOLTAGE_NOISE_THRESHOLD     75.0   // Ignore readings below this (ghost voltage)
 
 // Current Sensor Calibration (Linear: actualValue = rawADC * slope + intercept)
 #define CURRENT_SLOPE         0.0073 // Calibrated for 0-30A range (30/4095 ≈ 0.0073)
 #define CURRENT_INTERCEPT     0.0    // Adjust after calibration
+#define CURRENT_NOISE_THRESHOLD 0.60 // Ignore readings below this (filter 0.5A noise)
 
 // ADC Configuration
 #define ADC_RESOLUTION        4095   // 12-bit ADC (0-4095)

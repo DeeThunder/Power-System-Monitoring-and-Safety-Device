@@ -153,8 +153,9 @@ void StateManager::updateStateNormal() {
 
         // Serial Debug Output
         #ifdef APP_DEBUG
-            Serial.printf("[Data] V: %.1fV | I: %.2fA | P: %.1fW | WiFi: %s\n", 
+            Serial.printf("[Data] V: %.1fV | I: %.2fA | P: %.1fW | Relay: %s | WiFi: %s\n", 
                           sensor_.getVoltage(), sensor_.getCurrent(), sensor_.getPower(),
+                          safety_.isTripped() ? "OFF" : "ON",
                           network_.isWiFiConnected() ? "CONNECTED" : "DISCONNECTED");
         #endif
     }
@@ -187,6 +188,19 @@ void StateManager::updateStateTripProtection() {
     if (now - lastDisplayUpdate_ >= INTERVAL_DISPLAY) {
         lastDisplayUpdate_ = now;
         display_.showTripAlert(safety_.getLastFaultReason());
+
+        #ifdef APP_DEBUG
+            Serial.printf("[Trip Mode] V: %.1fV | I: %.2fA | Relay: %s | Reason: %s\n", 
+                          sensor_.getVoltage(), sensor_.getCurrent(), 
+                          safety_.isTripped() ? "OFF" : "ON",
+                          safety_.getLastFaultReason().c_str());
+        #endif
+    }
+    
+    // Publish to Blynk (so user knows if it's safe to reset)
+    if (network_.isBlynkConnected()) {
+        network_.publishData(sensor_.getVoltage(), sensor_.getCurrent(), 
+                            sensor_.getPower());
     }
     
     // Note: Reset is handled by handleReset() called from main loop button handler
@@ -240,7 +254,7 @@ void StateManager::onStateEnter() {
         case STATE_BOOT:
             display_.showStartup();
             safety_.setRGBStatus(RGB_BLUE);  // Blue = Booting/No WiFi
-            // Relay stays OFF during boot
+            safety_.tripRelay();  // Keep relay OFF during boot (de-energized)
             #ifdef APP_DEBUG
                 Serial.println("[StateManager] BOOT: RGB=Blue, Relay=OFF");
             #endif
@@ -267,10 +281,17 @@ void StateManager::onStateEnter() {
             
         case STATE_OFFLINE_MODE:
             safety_.setRGBStatus(RGB_BLUE);  // Blue = No WiFi (offline)
-            safety_.resetRelay();  // Turn relay ON (can operate offline)
-            #ifdef APP_DEBUG
-                Serial.println("[StateManager] OFFLINE: RGB=Blue, Relay=ON");
-            #endif
+            // Only energize relay if not tripped
+            if (!safety_.isTripped()) {
+                safety_.resetRelay();  // Turn relay ON (can operate offline)
+                #ifdef APP_DEBUG
+                    Serial.println("[StateManager] OFFLINE: RGB=Blue, Relay=ON (not tripped)");
+                #endif
+            } else {
+                #ifdef APP_DEBUG
+                    Serial.println("[StateManager] OFFLINE: RGB=Blue, Relay=OFF (tripped)");
+                #endif
+            }
             break;
     }
 }

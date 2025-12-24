@@ -10,8 +10,8 @@ void SafetyManager::begin() {
     // Configure relay pin
     pinMode(PIN_RELAY, OUTPUT);
     
-    // CRITICAL: Start with relay OFF (de-energized) for safety
-    setRelayState(false);  // Relay OFF
+    // CRITICAL: Start with relay OFF during boot - will energize when entering NORMAL state
+    setRelayState(false);  // Relay OFF (NO pin open, no power flow)
     relayTripped_ = false;
     
     // Configure RGB LED pins
@@ -26,7 +26,7 @@ void SafetyManager::begin() {
         Serial.println("[SafetyManager] Initialized");
         Serial.printf("[SafetyManager] Relay mode: %s\n", 
                       RELAY_ACTIVE_HIGH ? "Active HIGH" : "Active LOW");
-        Serial.println("[SafetyManager] Relay started OFF (safe state)");
+        Serial.println("[SafetyManager] Relay started OFF (will energize when NORMAL)");
     #endif
 }
 
@@ -34,6 +34,22 @@ bool SafetyManager::checkSafety(float voltage, float current) {
     lastVoltage_ = voltage;
     lastCurrent_ = current;
     
+    // CRITICAL: Check if power is present first
+    // If voltage is very low (< 100V), the mains is OFF - this is normal, not a fault
+    // We should NOT trip in this case, just keep the relay in its current state
+    if (voltage < VOLTAGE_POWER_PRESENT_THRESHOLD) {
+        #ifdef APP_DEBUG
+            // Only log occasionally to avoid spam
+            static unsigned long lastPowerOffLog = 0;
+            if (millis() - lastPowerOffLog > 5000) {
+                Serial.println("[SafetyManager] Power OFF detected - skipping voltage checks");
+                lastPowerOffLog = millis();
+            }
+        #endif
+        return true;  // Safe - power is just off
+    }
+    
+    // Power is ON - now check voltage limits
     // Check over-voltage
     if (checkOverVoltage(voltage)) {
         lastFaultReason_ = "OVER VOLTAGE";
@@ -67,7 +83,7 @@ bool SafetyManager::checkSafety(float voltage, float current) {
 
 void SafetyManager::tripRelay() {
     if (!relayTripped_) {
-        setRelayState(true);  // Energize relay (disconnect power)
+        setRelayState(false);  // De-energize relay (NO pin opens, disconnect power)
         relayTripped_ = true;
         setRGBStatus(RGB_RED);
         
@@ -78,7 +94,7 @@ void SafetyManager::tripRelay() {
 }
 
 void SafetyManager::resetRelay() {
-    setRelayState(false);  // De-energize relay (connect power)
+    setRelayState(true);  // Energize relay (NO pin closes, connect power)
     relayTripped_ = false;
     
     #ifdef APP_DEBUG
@@ -150,10 +166,10 @@ bool SafetyManager::checkOverCurrent(float current) {
 
 void SafetyManager::setRelayState(bool energize) {
     #if RELAY_ACTIVE_HIGH
-        // Active HIGH: HIGH = energized (tripped)
+        // Active HIGH + NO pin: HIGH = energized (NO contact closed, power flows)
         digitalWrite(PIN_RELAY, energize ? HIGH : LOW);
     #else
-        // Active LOW: LOW = energized (tripped)
+        // Active LOW + NO pin: LOW = energized (NO contact closed, power flows)
         digitalWrite(PIN_RELAY, energize ? LOW : HIGH);
     #endif
 }

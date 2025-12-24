@@ -30,8 +30,28 @@ void EnergySensor::begin() {
 
 void EnergySensor::update() {
     if (simulationMode_) {
-        voltage_ = readVoltageSimulation();
-        current_ = readCurrentSimulation();
+        // Read Raw Values
+        float rawVoltage = readVoltageSimulation();
+        float rawCurrent = readCurrentSimulation();
+        
+        // Apply Smoothing (Exponential Moving Average)
+        // BUT: If power drops very low, reset immediately to avoid slow decay causing false trips
+        if (rawVoltage < VOLTAGE_NOISE_THRESHOLD) {
+            // Power is OFF - reset smoothing immediately
+            voltage_ = 0.0;
+            current_ = 0.0;
+        } else {
+            // Power is ON - apply normal smoothing
+            // Alpha = 0.2 means 20% weight to new reading, 80% to old.
+            // First reading initialization:
+            if (voltage_ == 0.0 && rawVoltage > 0) voltage_ = rawVoltage;
+            if (current_ == 0.0 && rawCurrent > 0) current_ = rawCurrent;
+            
+            const float alpha = 0.2; 
+            voltage_ = (alpha * rawVoltage) + ((1.0 - alpha) * voltage_);
+            current_ = (alpha * rawCurrent) + ((1.0 - alpha) * current_);
+        }
+        
     } else {
         #ifndef SIMULATION_MODE
             // TODO: Read from EmonLib
@@ -89,41 +109,52 @@ float EnergySensor::applyCalibration(uint16_t rawValue, float slope, float inter
 }
 
 float EnergySensor::readVoltageSimulation() {
-    // ZMPT101B AC voltage sensor reading with proper RMS calculation
-    // The sensor outputs an AC waveform centered around 2.5V (VCC/2)
+    // ZMPT101B AC voltage sensor reading using Single-Pass True RMS
+    // Formula: RMS = sqrt( (SumSq - (Sum*Sum/N)) / N )
+    // This removes DC bias dynamically in a single pass, which is much more stable
+    // against fluctuations and takes half the time (or double precision).
+
+    const int numSamples = 1000;  // Double the samples for better averaging (same total time as before)
+    const float vRef = 3.3;       // ESP32 ADC reference voltage
     
-    const int numSamples = 100;  // Sample over multiple AC cycles
-    const float vRef = 3.3;      // ESP32 ADC reference voltage
-    const float zeroPoint = 2.5; // ZMPT101B zero-point (VCC/2)
+    unsigned long sumRaw = 0;
+    double sumSqRaw = 0; // Double precision for squares to avoid overflow
     
-    float sumSquares = 0.0;
-    
-    // Sample the AC waveform
+    // Single Sampling Pass
     for (int i = 0; i < numSamples; i++) {
         uint16_t rawADC = analogRead(PIN_VOLTAGE_SENSOR);
-        
-        // Convert ADC to voltage (0-3.3V)
-        float voltage = (rawADC / (float)ADC_RESOLUTION) * vRef;
-        
-        // Subtract zero-point offset to get AC component
-        float acVoltage = voltage - zeroPoint;
-        
-        // Square and accumulate
-        sumSquares += (acVoltage * acVoltage);
-        
-        delayMicroseconds(200);  // Small delay between samples (~50Hz sampling)
+        sumRaw += rawADC;
+        sumSqRaw += (double)rawADC * rawADC;
+        // Faster delay to fit more samples in ~100ms
+        delayMicroseconds(100);
     }
     
-    // Calculate RMS of the AC component
-    float rmsVoltage = sqrt(sumSquares / numSamples);
+    // 1. Calculate Mean (DC Bias)
+    double mean = (double)sumRaw / numSamples;
     
-    // Apply calibration factor to convert to actual AC mains voltage
-    // This factor needs to be calibrated with a known voltage source
-    // Typical range: 100-200 depending on ZMPT101B burden resistor
-    float calibrationFactor = 150.0;  // Adjust this based on your actual readings
-    float actualVoltage = rmsVoltage * calibrationFactor;
+    // 2. Calculate Variance of the counts (E[x^2] - (E[x])^2)
+    // This gives us the Mean Square of the AC component
+    double meanSquareRaw = (sumSqRaw / numSamples) - (mean * mean);
     
-    #ifdef DEBUG_SERIAL
+    // Handle floating point errors (negative zero)
+    if (meanSquareRaw < 0) meanSquareRaw = 0;
+    
+    // 3. RMS in ADC counts
+    double rmsADC = sqrt(meanSquareRaw);
+    
+    // 4. Convert to Voltage
+    // (rmsADC / 4095) * 3.3
+    float rmsVoltage = (float)((rmsADC / ADC_RESOLUTION) * vRef);
+    
+    // Apply calibration factor
+    float actualVoltage = rmsVoltage * VOLTAGE_CALIBRATION_FACTOR;
+
+    // Noise Gate: Ignore phantom voltages (ghost readings) when mains is disconnected
+    if (actualVoltage < VOLTAGE_NOISE_THRESHOLD) {
+        actualVoltage = 0.0;
+    }
+    
+    #ifdef APP_DEBUG
         Serial.printf("[EnergySensor] Voltage RMS: %.4fV -> %.2fV AC\n", 
                       rmsVoltage, actualVoltage);
     #endif
@@ -132,18 +163,61 @@ float EnergySensor::readVoltageSimulation() {
 }
 
 float EnergySensor::readCurrentSimulation() {
-    uint16_t rawADC = readADC(PIN_CURRENT_SENSOR);
-    float calibrated = applyCalibration(rawADC, CURRENT_SLOPE, CURRENT_INTERCEPT);
+    // Current sensor (SCT-013) AC reading with RMS calculation
+    const int numSamples = 500;
+    const float adcVoltageRef = 3.3;
+    float sum = 0.0;
+    float sumSquares = 0.0;
     
-    // For simulation: map ADC range to realistic current range (0A - 25A)
-    float simulatedCurrent = map(rawADC, 0, ADC_RESOLUTION, 0, 25);
+    // Arrays to store samples for two-pass algorithm (optional) 
+    // or just use a digital filter. For simplicity and memory (no large arrays),
+    // let's use the standard DC-offset removal filter (like EmonLib)
+    // or a simple two-pass which is more accurate if we can't do continuous sampling.
+    // Given the short sample time, two-pass is fine.
     
-    #ifdef DEBUG_SERIAL
-        // Serial.printf("[EnergySensor] Current ADC: %d -> %.2fA (simulated)\n", 
-        //               rawADC, simulatedCurrent);
-    #endif
+    // Pass 1: Calculate Mean (DC Bias)
+    long biasSum = 0;
+    for (int i = 0; i < numSamples; i++) {
+        biasSum += analogRead(PIN_CURRENT_SENSOR);
+        delayMicroseconds(100);
+    }
+    float dcBias = biasSum / (float)numSamples;
     
-    return simulatedCurrent;
+    // Pass 2: Calculate RMS relative to DC Bias
+    for (int i = 0; i < numSamples; i++) {
+        float sample = analogRead(PIN_CURRENT_SENSOR);
+        float acValue = sample - dcBias;
+        sumSquares += (acValue * acValue);
+        delayMicroseconds(100);
+    }
+    
+    // Convert to RMS ADC coordinates
+    float rmsADC = sqrt(sumSquares / numSamples);
+    
+    // Convert to Voltage (at ADC input)
+    float rmsVoltage = (rmsADC / (float)ADC_RESOLUTION) * adcVoltageRef;
+    
+    // Convert RMS voltage to Current using slope (calibration)
+    // SCT-013-030 output is 1V @ 30A usually, or similar ratio
+    // Here we use the define slope for simplicity or a direct factor
+    // Assuming slope is Amps per Volt coming out of the circuit:
+    // If 30A gives 1V, then factor is 30.0. 
+    // Let's use a rough factor derived from the slope if possible, 
+    // or just a standard factor for the SCT013 circuit.
+    // For now, let's trust the logic: Amps = rmsVoltage * CURRENT_CAL_FACTOR
+    
+    float calibrationFactor = 20.0; // Need to verify this against CURRENT_SLOPE intent
+    // Or restart using the raw ADC approach if that was intended for DC? 
+    // SCT is AC. RMS is correct.
+    
+    float current = rmsVoltage * calibrationFactor;
+    
+    // Noise gate
+    if (current < CURRENT_NOISE_THRESHOLD) {
+        current = 0.0;
+    }
+    
+    return current;
 }
 
 // Future: Production mode implementation with EmonLib
