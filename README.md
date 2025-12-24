@@ -198,6 +198,27 @@ To switch from simulation (potentiometers) to real sensors:
 3. Update `EnergySensor.cpp` with EmonLib code
 4. Recalibrate with actual sensors
 
+## Documentation
+
+### 📚 Complete Documentation Suite
+
+- **[API Documentation](docs/API_DOCUMENTATION.md)** - Complete API reference, configuration guide, calibration procedures, and troubleshooting
+- **[Technical Challenges Report](docs/TECHNICAL_CHALLENGES.md)** - Detailed analysis of all challenges faced and solutions implemented
+- **[Chapter 3: Methodology](docs/CHAPTER3_METHODOLOGY.md)** - Academic methodology documentation with diagrams and algorithms
+- **[Blynk Setup Guide](BLYNK_SETUP.md)** - Step-by-step IoT platform configuration
+- **[Wokwi Simulation Guide](WOKWI_SIMULATION.md)** - Browser-based testing without hardware
+
+### Quick Links
+
+| Topic | Document | Description |
+|-------|----------|-------------|
+| Getting Started | [API Documentation](docs/API_DOCUMENTATION.md#getting-started) | Installation and first-time setup |
+| API Reference | [API Documentation](docs/API_DOCUMENTATION.md#api-reference) | Complete class and method documentation |
+| Calibration | [API Documentation](docs/API_DOCUMENTATION.md#calibration-procedures) | Sensor calibration step-by-step |
+| Troubleshooting | [API Documentation](docs/API_DOCUMENTATION.md#troubleshooting) | Common issues and solutions |
+| Contributing | [API Documentation](docs/API_DOCUMENTATION.md#contributing) | Code style and contribution guidelines |
+| Future Plans | [API Documentation](docs/API_DOCUMENTATION.md#future-enhancements) | Roadmap and planned features |
+
 ## License
 
 MIT License - Free for educational and commercial use
