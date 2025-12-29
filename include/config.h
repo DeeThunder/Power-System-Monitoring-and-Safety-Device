@@ -1,10 +1,9 @@
 // ============================================================================
 // BLYNK CONFIGURATION (Must be defined BEFORE including Blynk library)
 // ============================================================================
-#define BLYNK_TEMPLATE_ID     "TMPL2cEqaLW7h"  // Replace with your Blynk Template ID
-#define BLYNK_TEMPLATE_NAME   "Energy Monitoring and Safety Meter"
-#define BLYNK_AUTH_TOKEN      "JeQK-J5qRKHFBCm94mNhXztmnpja1udh"  // Replace with your auth token
-
+#define BLYNK_TEMPLATE_ID "TMPL2cEqaLW7h"
+#define BLYNK_TEMPLATE_NAME "Energy Monitoring and Safety Meter"
+#define BLYNK_AUTH_TOKEN "JeQK-J5qRKHFBCm94mNhXztmnpja1udh"
 
 #ifndef CONFIG_H
 #define CONFIG_H
@@ -18,7 +17,7 @@
 #define PIN_CURRENT_SENSOR    35  // ADC1_CH7 - Current sensor (SCT-013 / Potentiometer)
 
 // Digital Outputs
-#define PIN_RELAY             26  // Relay control
+#define PIN_RELAY             26  // Relay control (GPIO23 is safe and reliable)
 #define PIN_RGB_RED           25  // RGB LED - Red channel
 #define PIN_RGB_GREEN         33  // RGB LED - Green channel
 #define PIN_RGB_BLUE          32  // RGB LED - Blue channel
@@ -36,7 +35,9 @@
 
 // Relay Configuration
 // NOTE: Using NO (Normally Open) pin - relay must be energized to close contact and allow power flow
-#define RELAY_ACTIVE_HIGH     true   // Set to false if relay is Active LOW
+// CW-020 Relay Module: LOW-LEVEL TRIGGER (Active LOW)
+// LOW = Relay energizes (ON), HIGH = Relay de-energizes (OFF)
+#define RELAY_ACTIVE_HIGH     true
 
 // RGB LED Configuration
 #define RGB_COMMON_CATHODE    true   // Set to false if Common Anode
@@ -63,14 +64,15 @@
 #define VPIN_POWER            V2     // Power reading
 #define VPIN_STATE            V3     // System state (string)
 #define VPIN_RESET_BUTTON     V4     // Reset button (write)
+#define VPIN_MANUAL_SWITCH    V5     // Manual ON/OFF switch (write)
 
 // ============================================================================
 // SAFETY THRESHOLDS
 // ============================================================================
 
 // Voltage Thresholds (in Volts)
-#define VOLTAGE_MAX           250.0  // Over-voltage trip threshold
-#define VOLTAGE_MIN           216.0  // Under-voltage trip threshold
+#define VOLTAGE_MAX           249.0  // Over-voltage trip threshold
+#define VOLTAGE_MIN           200.0  // Under-voltage trip threshold
 #define VOLTAGE_HYSTERESIS    5.0    // Hysteresis to prevent relay chattering
 #define VOLTAGE_POWER_PRESENT_THRESHOLD 100.0  // Below this = power is off (don't trip)
 
@@ -90,10 +92,11 @@
 #define VOLTAGE_ZERO_POINT          2.19   // VCC/2 for ZMPT101B (adjust if needed)
 #define VOLTAGE_NOISE_THRESHOLD     75.0   // Ignore readings below this (ghost voltage)
 
-// Current Sensor Calibration (Linear: actualValue = rawADC * slope + intercept)
-#define CURRENT_SLOPE         0.0073 // Calibrated for 0-30A range (30/4095 ≈ 0.0073)
+// Current Sensor Calibration (SCT-013-030: 1V output @ 30A max)
+#define CURRENT_CALIBRATION_FACTOR 30.0  // SCT-013-030 outputs 1V @ 30A
+#define CURRENT_SLOPE         0.0073 // Legacy: Calibrated for 0-30A range (30/4095 ≈ 0.0073)
 #define CURRENT_INTERCEPT     0.0    // Adjust after calibration
-#define CURRENT_NOISE_THRESHOLD 0.60 // Ignore readings below this (filter 0.5A noise)
+#define CURRENT_NOISE_THRESHOLD 0.01 // Ignore readings below this (10mA noise floor)
 
 // ADC Configuration
 #define ADC_RESOLUTION        4095   // 12-bit ADC (0-4095)
@@ -107,10 +110,12 @@
 #define INTERVAL_DISPLAY      1000   // Display update interval
 #define INTERVAL_BLYNK        2000   // Blynk data transmission interval
 #define INTERVAL_SAFETY       100    // Safety check interval (HIGH PRIORITY)
-#define INTERVAL_WIFI_RETRY   30000  // WiFi reconnection attempt interval
+#define INTERVAL_WIFI_RETRY   30000  // WiFi reconnection attempt interval (30 seconds)
+#define INTERVAL_BLYNK_RETRY  5000   // Minimum Blynk retry interval (5 seconds, with exponential backoff)
 
 // WiFi Connection Timeout
 #define WIFI_CONNECT_TIMEOUT  20000  // WiFi connection timeout (20 seconds)
+#define BLYNK_CONNECT_TIMEOUT 3000   // Blynk connection timeout (3 seconds)
 
 // ============================================================================
 // RGB LED COLORS (0-255 for each channel)
@@ -122,12 +127,14 @@
     #define RGB_BLUE          0, 0, 255      // Booting/Initializing
     #define RGB_GREEN         0, 255, 0      // Normal operation
     #define RGB_YELLOW        255, 255, 0    // Offline mode
+    #define RGB_ORANGE        255, 165, 0    // Manual OFF
     #define RGB_RED           255, 0, 0      // Trip protection
 #else
     #define RGB_OFF           255, 255, 255
     #define RGB_BLUE          255, 255, 0
     #define RGB_GREEN         255, 0, 255
     #define RGB_YELLOW        0, 0, 255
+    #define RGB_ORANGE        0, 90, 255     // Manual OFF (inverted)
     #define RGB_RED           0, 255, 255
 #endif
 

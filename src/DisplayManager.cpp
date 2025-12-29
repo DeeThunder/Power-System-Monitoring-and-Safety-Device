@@ -19,7 +19,6 @@ bool DisplayManager::begin() {
     
     // Clear display
     display_->clearBuffer();
-    display_->sendBuffer();
     
     #ifdef APP_DEBUG
         Serial.println("[DisplayManager] U8g2 initialized successfully");

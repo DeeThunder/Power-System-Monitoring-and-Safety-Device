@@ -29,6 +29,12 @@ public:
     void setResetCallback(void (*callback)());
     
     /**
+     * @brief Set callback for manual switch (called from Blynk handler)
+     * @param callback Function to call when manual switch is toggled
+     */
+    void setManualSwitchCallback(void (*callback)(bool));
+    
+    /**
      * @brief Update network connections (non-blocking)
      * Must be called regularly from main loop
      */
@@ -65,6 +71,12 @@ public:
      * @param state State name
      */
     void updateState(const String& state);
+    
+    /**
+     * @brief Update manual switch state on Blynk
+     * @param isOn Switch state (true = ON, false = OFF)
+     */
+    void updateSwitchState(bool isOn);
     
     /**
      * @brief Attempt to reconnect WiFi

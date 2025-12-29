@@ -7,6 +7,9 @@
 // Callback for reset button (set from main.cpp)
 static void (*resetCallback)() = nullptr;
 
+// Callback for manual switch (set from main.cpp)
+static void (*manualSwitchCallback)(bool) = nullptr;
+
 // Blynk handler for reset button
 BLYNK_WRITE(VPIN_RESET_BUTTON) {
     int value = param.asInt();
@@ -19,6 +22,19 @@ BLYNK_WRITE(VPIN_RESET_BUTTON) {
         resetCallback();
         // Reset button state in Blynk
         Blynk.virtualWrite(VPIN_RESET_BUTTON, 0);
+    }
+}
+
+// Blynk handler for manual switch
+BLYNK_WRITE(VPIN_MANUAL_SWITCH) {
+    int value = param.asInt();
+    
+    #ifdef APP_DEBUG
+        Serial.printf("[NetworkManager] Manual switch received: %d\n", value);
+    #endif
+
+    if (manualSwitchCallback != nullptr) {
+        manualSwitchCallback(value == 1);
     }
 }
 
@@ -42,6 +58,10 @@ void NetworkManager::begin() {
 
 void NetworkManager::setResetCallback(void (*callback)()) {
     resetCallback = callback;
+}
+
+void NetworkManager::setManualSwitchCallback(void (*callback)(bool)) {
+    manualSwitchCallback = callback;
 }
 
 void NetworkManager::update() {
@@ -150,6 +170,16 @@ void NetworkManager::updateState(const String& state) {
     
     #ifdef APP_DEBUG
         Serial.printf("[NetworkManager] State updated: %s\n", state.c_str());
+    #endif
+}
+
+void NetworkManager::updateSwitchState(bool isOn) {
+    if (!blynkConnected_) return;
+    
+    Blynk.virtualWrite(VPIN_MANUAL_SWITCH, isOn ? 1 : 0);
+    
+    #ifdef APP_DEBUG
+        Serial.printf("[NetworkManager] Switch state updated: %s\n", isOn ? "ON" : "OFF");
     #endif
 }
 

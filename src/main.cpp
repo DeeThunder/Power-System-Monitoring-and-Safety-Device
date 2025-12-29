@@ -23,6 +23,7 @@
 #include "SafetyManager.h"
 #include "StateManager.h"
 #include "NetworkManager.h"
+#include "RelayTest.h"  // For relay diagnostic test
 
 
 // ============================================================================
@@ -70,18 +71,14 @@ void setup() {
         stateManager.handleReset();
     });
     
+    // Register manual switch callback for Blynk switch
+    networkManager.setManualSwitchCallback([](bool turnOn) {
+        stateManager.handleManualSwitch(turnOn);
+    });
+    
     stateManager.begin();
     
     #ifdef APP_DEBUG
-        Serial.println("[Main] Initialization complete\n");
-        Serial.println("Pin Configuration:");
-        Serial.printf("  Voltage Sensor: GPIO %d\n", PIN_VOLTAGE_SENSOR);
-        Serial.printf("  Current Sensor: GPIO %d\n", PIN_CURRENT_SENSOR);
-        Serial.printf("  Relay: GPIO %d\n", PIN_RELAY);
-        Serial.printf("  RGB LED: R=%d, G=%d, B=%d\n", 
-                      PIN_RGB_RED, PIN_RGB_GREEN, PIN_RGB_BLUE);
-        Serial.printf("  I2C: SDA=%d, SCL=%d\n\n", PIN_SDA, PIN_SCL);
-        
         Serial.println("Safety Thresholds:");
         Serial.printf("  Voltage: %.1fV - %.1fV\n", VOLTAGE_MIN, VOLTAGE_MAX);
         Serial.printf("  Current: 0A - %.1fA\n\n", CURRENT_MAX);
@@ -93,9 +90,8 @@ void setup() {
 // ============================================================================
 
 void loop() {
-    // Update state machine (handles all module coordination)
+    // // Update state machine (handles all module coordination)
     stateManager.update();
-    
-    // Small yield to prevent watchdog timeout
+    // // Small yield to prevent watchdog timeout
     yield();
 }

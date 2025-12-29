@@ -3,7 +3,9 @@
 
 SafetyManager::SafetyManager() 
     : relayTripped_(false), lastFaultReason_(""), 
-      lastVoltage_(0.0), lastCurrent_(0.0) {
+      lastVoltage_(0.0), lastCurrent_(0.0),
+      blinkEnabled_(false), blinkR_(0), blinkG_(0), blinkB_(0),
+      lastBlinkTime_(0), blinkState_(false) {
 }
 
 void SafetyManager::begin() {
@@ -11,8 +13,8 @@ void SafetyManager::begin() {
     pinMode(PIN_RELAY, OUTPUT);
     
     // CRITICAL: Start with relay OFF during boot - will energize when entering NORMAL state
-    setRelayState(false);  // Relay OFF (NO pin open, no power flow)
-    relayTripped_ = false;
+    setRelayState(true);  // De-energize relay (NO pin open, no power flow)
+    relayTripped_ = false;  // Not tripped, just starting OFF
     
     // Configure RGB LED pins
     pinMode(PIN_RGB_RED, OUTPUT);
@@ -83,22 +85,24 @@ bool SafetyManager::checkSafety(float voltage, float current) {
 
 void SafetyManager::tripRelay() {
     if (!relayTripped_) {
-        setRelayState(false);  // De-energize relay (NO pin opens, disconnect power)
+        setRelayState(true);  // De-energize relay (NO pin opens, disconnect power)
         relayTripped_ = true;
         setRGBStatus(RGB_RED);
+        blinkEnabled_ = false;  // Stop blinking when tripped
         
         #ifdef APP_DEBUG
-            Serial.println("[SafetyManager] RELAY TRIPPED - Power disconnected");
+            Serial.println("[SafetyManager] ⚠️  RELAY TRIPPED");
         #endif
     }
 }
 
 void SafetyManager::resetRelay() {
-    setRelayState(true);  // Energize relay (NO pin closes, connect power)
+    setRelayState(false);  // Energize relay (NO pin closes, connect power)
     relayTripped_ = false;
+    blinkEnabled_ = false;  // Stop blinking when relay is ON
     
     #ifdef APP_DEBUG
-        Serial.println("[SafetyManager] Relay reset - Power connected");
+        Serial.println("[SafetyManager] ✓ Relay RESET");
     #endif
 }
 
@@ -107,6 +111,17 @@ bool SafetyManager::isTripped() const {
 }
 
 void SafetyManager::setRGBStatus(uint8_t r, uint8_t g, uint8_t b) {
+    // Store the color for blinking
+    blinkR_ = r;
+    blinkG_ = g;
+    blinkB_ = b;
+    
+    // If blinking is enabled, don't set directly - let updateBlink() handle it
+    if (blinkEnabled_) {
+        return;
+    }
+    
+    // Set color directly if not blinking
     #if RGB_COMMON_CATHODE
         // Common cathode: HIGH = ON
         analogWrite(PIN_RGB_RED, r);
@@ -172,4 +187,72 @@ void SafetyManager::setRelayState(bool energize) {
         // Active LOW + NO pin: LOW = energized (NO contact closed, power flows)
         digitalWrite(PIN_RELAY, energize ? LOW : HIGH);
     #endif
+    
+    // Diagnostic: Read back pin state to verify
+    #ifdef APP_DEBUG
+        int pinState = digitalRead(PIN_RELAY);
+        Serial.printf("[SafetyManager] Relay %s - GPIO%d = %s (Config: Active %s)\n", 
+                      energize ? "ENERGIZE" : "DE-ENERGIZE",
+                      PIN_RELAY,
+                      pinState == HIGH ? "HIGH" : "LOW",
+                      RELAY_ACTIVE_HIGH ? "HIGH" : "LOW");
+        Serial.printf("[SafetyManager] Expected behavior: Bulb should be %s\n",
+                      energize ? "ON" : "OFF");
+    #endif
 }
+
+void SafetyManager::updateBlink() {
+    if (!blinkEnabled_) return;
+    
+    unsigned long now = millis();
+    if (now - lastBlinkTime_ >= 500) {  // Blink every 500ms
+        lastBlinkTime_ = now;
+        blinkState_ = !blinkState_;
+        
+        if (blinkState_) {
+            // ON state - show color
+            #if RGB_COMMON_CATHODE
+                analogWrite(PIN_RGB_RED, blinkR_);
+                analogWrite(PIN_RGB_GREEN, blinkG_);
+                analogWrite(PIN_RGB_BLUE, blinkB_);
+            #else
+                analogWrite(PIN_RGB_RED, 255 - blinkR_);
+                analogWrite(PIN_RGB_GREEN, 255 - blinkG_);
+                analogWrite(PIN_RGB_BLUE, 255 - blinkB_);
+            #endif
+        } else {
+            // OFF state - turn off LED
+            #if RGB_COMMON_CATHODE
+                analogWrite(PIN_RGB_RED, 0);
+                analogWrite(PIN_RGB_GREEN, 0);
+                analogWrite(PIN_RGB_BLUE, 0);
+            #else
+                analogWrite(PIN_RGB_RED, 255);
+                analogWrite(PIN_RGB_GREEN, 255);
+                analogWrite(PIN_RGB_BLUE, 255);
+            #endif
+        }
+    }
+}
+
+void SafetyManager::setBlinking(bool enable) {
+    blinkEnabled_ = enable;
+    
+    if (!enable) {
+        // When disabling blink, set the color directly
+        #if RGB_COMMON_CATHODE
+            analogWrite(PIN_RGB_RED, blinkR_);
+            analogWrite(PIN_RGB_GREEN, blinkG_);
+            analogWrite(PIN_RGB_BLUE, blinkB_);
+        #else
+            analogWrite(PIN_RGB_RED, 255 - blinkR_);
+            analogWrite(PIN_RGB_GREEN, 255 - blinkG_);
+            analogWrite(PIN_RGB_BLUE, 255 - blinkB_);
+        #endif
+    }
+    
+    #ifdef APP_DEBUG
+        Serial.printf("[SafetyManager] Blinking %s\n", enable ? "ENABLED" : "DISABLED");
+    #endif
+}
+

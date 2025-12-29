@@ -197,25 +197,20 @@ float EnergySensor::readCurrentSimulation() {
     // Convert to Voltage (at ADC input)
     float rmsVoltage = (rmsADC / (float)ADC_RESOLUTION) * adcVoltageRef;
     
-    // Convert RMS voltage to Current using slope (calibration)
-    // SCT-013-030 output is 1V @ 30A usually, or similar ratio
-    // Here we use the define slope for simplicity or a direct factor
-    // Assuming slope is Amps per Volt coming out of the circuit:
-    // If 30A gives 1V, then factor is 30.0. 
-    // Let's use a rough factor derived from the slope if possible, 
-    // or just a standard factor for the SCT013 circuit.
-    // For now, let's trust the logic: Amps = rmsVoltage * CURRENT_CAL_FACTOR
+    // Convert RMS voltage to Current using calibration factor
+    // SCT-013-030: 1V RMS output @ 30A max current
+    // Formula: Current (A) = RMS Voltage (V) × Calibration Factor
+    float current = rmsVoltage * CURRENT_CALIBRATION_FACTOR;
     
-    float calibrationFactor = 20.0; // Need to verify this against CURRENT_SLOPE intent
-    // Or restart using the raw ADC approach if that was intended for DC? 
-    // SCT is AC. RMS is correct.
-    
-    float current = rmsVoltage * calibrationFactor;
-    
-    // Noise gate
+    // Noise gate - filter out readings below threshold
     if (current < CURRENT_NOISE_THRESHOLD) {
         current = 0.0;
     }
+    
+    #ifdef APP_DEBUG
+        Serial.printf("[EnergySensor] Current - DC Bias: %.2f, RMS ADC: %.2f, RMS V: %.4fV, I: %.3fA\n", 
+                      dcBias, rmsADC, rmsVoltage, current);
+    #endif
     
     return current;
 }

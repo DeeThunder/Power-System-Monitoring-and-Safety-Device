@@ -99,6 +99,68 @@ void StateManager::handleReset() {
     }
 }
 
+void StateManager::handleManualSwitch(bool turnOn) {
+    #ifdef APP_DEBUG
+        Serial.printf("[StateManager] Manual switch: %s\n", turnOn ? "ON" : "OFF");
+    #endif
+    
+    if (turnOn) {
+        // User wants to turn system ON
+        
+        // Safety check: Only allow if conditions are safe
+        float voltage = sensor_.getVoltage();
+        float current = sensor_.getCurrent();
+        
+        if (!safety_.checkSafety(voltage, current)) {
+            #ifdef APP_DEBUG
+                Serial.println("[StateManager] Cannot turn ON - unsafe conditions");
+                Serial.printf("[StateManager] V=%.2fV, I=%.2fA\n", voltage, current);
+            #endif
+            // Sync switch back to OFF
+            network_.updateSwitchState(false);
+            return;
+        }
+        
+        // Clear any previous faults
+        safety_.clearFault();
+        safety_.resetRelay();  // Turn relay ON
+        
+        // IMPORTANT: Disable blinking FIRST
+        safety_.setBlinking(false);
+        
+        // Then set the correct LED color based on current state
+        if (currentState_ == STATE_TRIP_PROTECTION) {
+            if (network_.isWiFiConnected()) {
+                setState(STATE_NORMAL);  // Will set Green LED
+            } else {
+                setState(STATE_OFFLINE_MODE);  // Will set Blue LED
+            }
+        } else if (currentState_ == STATE_NORMAL) {
+            // Already in NORMAL, set green LED
+            safety_.setRGBStatus(RGB_GREEN);
+        } else if (currentState_ == STATE_OFFLINE_MODE) {
+            // Already in OFFLINE, set blue LED
+            safety_.setRGBStatus(RGB_BLUE);
+        }
+        
+        #ifdef APP_DEBUG
+            Serial.println("[StateManager] Manual ON successful - LED restored to system state");
+        #endif
+        
+    } else {
+        // User wants to turn system OFF manually
+        safety_.tripRelay();  // Turn relay OFF
+        
+        // Enable blinking orange LED to indicate manual OFF
+        safety_.setRGBStatus(RGB_ORANGE);
+        safety_.setBlinking(true);
+        
+        #ifdef APP_DEBUG
+            Serial.println("[StateManager] Manual OFF - relay de-energized, blinking orange");
+        #endif
+    }
+}
+
 void StateManager::updateStateBoot() {
     unsigned long now = millis();
     
@@ -118,6 +180,9 @@ void StateManager::updateStateBoot() {
 
 void StateManager::updateStateNormal() {
     unsigned long now = millis();
+    
+    // Update blinking (if enabled)
+    safety_.updateBlink();
     
     // Update network (non-blocking)
     network_.update();
@@ -264,8 +329,9 @@ void StateManager::onStateEnter() {
             safety_.setRGBStatus(RGB_GREEN);  // Green = Normal operation
             safety_.resetRelay();  // Turn relay ON (safe to operate)
             network_.updateState("NORMAL");
+            network_.updateSwitchState(true);  // Sync switch to ON
             #ifdef APP_DEBUG
-                Serial.println("[StateManager] NORMAL: RGB=Green, Relay=ON");
+                Serial.println("[StateManager] NORMAL: RGB=Green, Relay=ON, Switch=ON");
             #endif
             break;
             
@@ -274,8 +340,9 @@ void StateManager::onStateEnter() {
             safety_.tripRelay();  // Ensure relay is OFF
             network_.sendAlert(safety_.getLastFaultReason());
             network_.updateState("TRIP: " + safety_.getLastFaultReason());
+            network_.updateSwitchState(false);  // Auto-toggle switch to OFF
             #ifdef APP_DEBUG
-                Serial.println("[StateManager] TRIP: RGB=Red, Relay=OFF");
+                Serial.println("[StateManager] TRIP: RGB=Red, Relay=OFF, Switch=OFF");
             #endif
             break;
             

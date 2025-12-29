@@ -1,0 +1,33 @@
+void SafetyManager::updateBlink() {
+    if (!blinkEnabled_) return;
+    
+    unsigned long now = millis();
+    if (now - lastBlinkTime_ >= 500) {  // Blink every 500ms
+        lastBlinkTime_ = now;
+        blinkState_ = !blinkState_;
+        
+        if (blinkState_) {
+            // ON state - show color
+            #if RGB_COMMON_CATHODE
+                analogWrite(PIN_RGB_RED, blinkR_);
+                analogWrite(PIN_RGB_GREEN, blinkG_);
+                analogWrite(PIN_RGB_BLUE, blinkB_);
+            #else
+                analogWrite(PIN_RGB_RED, 255 - blinkR_);
+                analogWrite(PIN_RGB_GREEN, 255 - blinkG_);
+                analogWrite(PIN_RGB_BLUE, 255 - blinkB_);
+            #endif
+        } else {
+            // OFF state - turn off LED
+            #if RGB_COMMON_CATHODE
+                analogWrite(PIN_RGB_RED, 0);
+                analogWrite(PIN_RGB_GREEN, 0);
+                analogWrite(PIN_RGB_BLUE, 0);
+            #else
+                analogWrite(PIN_RGB_RED, 255);
+                analogWrite(PIN_RGB_GREEN, 255);
+                analogWrite(PIN_RGB_BLUE, 255);
+            #endif
+        }
+    }
+}

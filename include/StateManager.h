@@ -58,9 +58,15 @@ public:
     String getStateName() const;
     
     /**
-     * @brief Handle reset button press
+     * @brief Handle reset button press from Blynk
      */
     void handleReset();
+    
+    /**
+     * @brief Handle manual switch toggle from Blynk
+     * @param turnOn True to turn system ON, false to turn OFF
+     */
+    void handleManualSwitch(bool turnOn);
 
 private:
     EnergySensor& sensor_;
