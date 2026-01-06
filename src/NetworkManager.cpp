@@ -4,6 +4,10 @@
 
 #include "NetworkManager.h"
 
+#ifdef ENABLE_PERFORMANCE_LOGGING
+    #include "PerformanceLogger.h"
+#endif
+
 // Callback for reset button (set from main.cpp)
 static void (*resetCallback)() = nullptr;
 
@@ -139,10 +143,19 @@ void NetworkManager::publishData(float voltage, float current, float power) {
     
     lastBlynkUpdate_ = now;
     
+    #ifdef ENABLE_PERFORMANCE_LOGGING
+        extern PerformanceLogger perfLogger;
+        perfLogger.startBlynkTransmit();
+    #endif
+    
     // Send data to virtual pins
     Blynk.virtualWrite(VPIN_VOLTAGE, voltage);
     Blynk.virtualWrite(VPIN_CURRENT, current);
     Blynk.virtualWrite(VPIN_POWER, power);
+    
+    #ifdef ENABLE_PERFORMANCE_LOGGING
+        perfLogger.endBlynkTransmit();  // This also logs the latency data
+    #endif
     
     #ifdef APP_DEBUG
         Serial.printf("[NetworkManager] Published to Blynk: V=%.2f, I=%.2f, P=%.2f\n", 

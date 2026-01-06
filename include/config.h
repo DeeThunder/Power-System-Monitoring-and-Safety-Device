@@ -140,4 +140,17 @@
     #define RGB_RED           0, 255, 255
 #endif
 
+// ============================================================================
+// PERFORMANCE LOGGING CONFIGURATION
+// ============================================================================
+
+// Enable performance logging (uncomment to enable)
+// Outputs CSV-formatted data via Serial for PC capture
+// Use tools/performance_logger.py to save data to CSV files
+#define ENABLE_PERFORMANCE_LOGGING
+
+#ifdef ENABLE_PERFORMANCE_LOGGING
+    #define PERF_ACCURACY_INTERVAL_MS  10000  // Log accuracy every 10 seconds
+#endif
+
 #endif // CONFIG_H

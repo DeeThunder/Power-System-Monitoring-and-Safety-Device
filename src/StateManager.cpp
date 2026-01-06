@@ -2,6 +2,10 @@
 #include "NetworkManager.h"
 #include "config.h"
 
+#ifdef ENABLE_PERFORMANCE_LOGGING
+    #include "PerformanceLogger.h"
+#endif
+
 StateManager::StateManager(EnergySensor& sensor, DisplayManager& display, 
                            NetworkManager& network, SafetyManager& safety)
     : sensor_(sensor), display_(display), network_(network), safety_(safety),
@@ -230,6 +234,18 @@ void StateManager::updateStateNormal() {
         network_.publishData(sensor_.getVoltage(), sensor_.getCurrent(), 
                             sensor_.getPower());
     }
+    
+    // Performance logging - log accuracy data periodically
+    #ifdef ENABLE_PERFORMANCE_LOGGING
+        static unsigned long lastAccuracyLog = 0;
+        if (now - lastAccuracyLog >= PERF_ACCURACY_INTERVAL_MS) {
+            lastAccuracyLog = now;
+            extern PerformanceLogger perfLogger;
+            perfLogger.logAccuracy(sensor_.getVoltage(), 
+                                  sensor_.getCurrent(), 
+                                  sensor_.getPower());
+        }
+    #endif
     
     // Check if WiFi disconnected
     if (!network_.isWiFiConnected()) {

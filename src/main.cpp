@@ -24,6 +24,9 @@
 #include "StateManager.h"
 #include "NetworkManager.h"
 
+#ifdef ENABLE_PERFORMANCE_LOGGING
+    #include "PerformanceLogger.h"
+#endif
 
 // ============================================================================
 // GLOBAL OBJECTS
@@ -34,6 +37,10 @@ DisplayManager displayManager;
 NetworkManager networkManager;
 SafetyManager safetyManager;
 StateManager stateManager(energySensor, displayManager, networkManager, safetyManager);
+
+#ifdef ENABLE_PERFORMANCE_LOGGING
+    PerformanceLogger perfLogger;
+#endif
 
 // ============================================================================
 // SETUP
@@ -84,6 +91,12 @@ void setup() {
     });
     
     stateManager.begin();
+    
+    #ifdef ENABLE_PERFORMANCE_LOGGING
+        perfLogger.begin();
+        Serial.println("[Main] Performance logging ENABLED");
+        Serial.println("[Main] Run: python tools/performance_logger.py COM3 115200");
+    #endif
     
     #ifdef APP_DEBUG
         Serial.println("Safety Thresholds:");

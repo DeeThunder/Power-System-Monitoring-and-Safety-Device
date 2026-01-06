@@ -1,0 +1,5 @@
+DateTime,Uptime(ms),FaultDetect(us),RelayTrip(us),TotalResponse(ms)
+2026-01-06 20:33:06,timestamp,faultDetectUs,relayTripUs,totalResponseMs
+2026-01-06 20:35:17,132743,48,11028,11
+2026-01-06 20:35:41,157439,48,11112,11
+2026-01-06 20:36:26,202387,49,1391,1

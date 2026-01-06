@@ -2,6 +2,10 @@
 #include "config.h"
 #include <math.h>
 
+#ifdef ENABLE_PERFORMANCE_LOGGING
+    #include "PerformanceLogger.h"
+#endif
+
 EnergySensor::EnergySensor() 
     : voltage_(0.0), current_(0.0), simulationMode_(true) {
 }
@@ -35,6 +39,11 @@ void EnergySensor::begin() {
 }
 
 void EnergySensor::update() {
+    #ifdef ENABLE_PERFORMANCE_LOGGING
+        extern PerformanceLogger perfLogger;
+        perfLogger.startSensorRead();
+    #endif
+    
     if (simulationMode_) {
         // Read Raw Values
         float rawVoltage = readVoltageSimulation();
@@ -91,6 +100,10 @@ void EnergySensor::update() {
             #endif
         #endif
     }
+    
+    #ifdef ENABLE_PERFORMANCE_LOGGING
+        perfLogger.endSensorRead();
+    #endif
     
     #ifdef DEBUG_SERIAL
         Serial.printf("[EnergySensor] V=%.2fV, I=%.2fA, P=%.2fW\n", 

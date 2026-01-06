@@ -1,6 +1,10 @@
 #include "SafetyManager.h"
 #include "config.h"
 
+#ifdef ENABLE_PERFORMANCE_LOGGING
+    #include "PerformanceLogger.h"
+#endif
+
 SafetyManager::SafetyManager() 
     : relayTripped_(false), lastFaultReason_(""), 
       lastVoltage_(0.0), lastCurrent_(0.0),
@@ -33,6 +37,11 @@ void SafetyManager::begin() {
 }
 
 bool SafetyManager::checkSafety(float voltage, float current) {
+    #ifdef ENABLE_PERFORMANCE_LOGGING
+        extern PerformanceLogger perfLogger;
+        perfLogger.startFaultDetection();
+    #endif
+    
     lastVoltage_ = voltage;
     lastCurrent_ = current;
     
@@ -80,15 +89,28 @@ bool SafetyManager::checkSafety(float voltage, float current) {
     }
     
     // All checks passed
+    #ifdef ENABLE_PERFORMANCE_LOGGING
+        perfLogger.endFaultDetection();
+    #endif
+    
     return true;
 }
 
 void SafetyManager::tripRelay() {
     if (!relayTripped_) {
+        #ifdef ENABLE_PERFORMANCE_LOGGING
+            extern PerformanceLogger perfLogger;
+            perfLogger.startRelayTrip();
+        #endif
+        
         setRelayState(true);  // De-energize relay (NO pin opens, disconnect power)
         relayTripped_ = true;
         setRGBStatus(RGB_RED);
         blinkEnabled_ = false;  // Stop blinking when tripped
+        
+        #ifdef ENABLE_PERFORMANCE_LOGGING
+            perfLogger.endRelayTrip();  // This also logs the trip response data
+        #endif
         
         #ifdef APP_DEBUG
             Serial.println("[SafetyManager] ⚠️  RELAY TRIPPED");
