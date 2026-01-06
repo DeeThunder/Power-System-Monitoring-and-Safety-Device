@@ -23,7 +23,6 @@
 #include "SafetyManager.h"
 #include "StateManager.h"
 #include "NetworkManager.h"
-#include "RelayTest.h"  // For relay diagnostic test
 
 
 // ============================================================================
@@ -48,6 +47,14 @@ void setup() {
         Serial.println("\n\n========================================");
         Serial.println("Smart Energy Monitoring System");
         Serial.println("========================================\n");
+    #endif
+    
+    // ============================================================================
+    // DIAGNOSTIC MODE - If enabled, run current sensor diagnostics only
+    // ============================================================================
+    #ifdef ENABLE_CURRENT_DIAGNOSTIC
+        setupCurrentDiagnostic();  // This will run in an infinite loop
+        // Code below will never execute when diagnostic mode is enabled
     #endif
     
     // Initialize all modules
@@ -90,8 +97,8 @@ void setup() {
 // ============================================================================
 
 void loop() {
-    // // Update state machine (handles all module coordination)
+    // Update state machine (handles all module coordination)
     stateManager.update();
-    // // Small yield to prevent watchdog timeout
+    // Small yield to prevent watchdog timeout
     yield();
 }

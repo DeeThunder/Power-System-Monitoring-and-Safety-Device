@@ -3,6 +3,11 @@
 
 #include <Arduino.h>
 
+// Include EmonLib for production current sensing
+#ifndef SIMULATION_MODE
+#include "EmonLib.h"
+#endif
+
 /**
  * @brief Energy Sensor Module
  * 
@@ -58,6 +63,11 @@ private:
     float voltage_;
     float current_;
     bool simulationMode_;
+    
+    // EmonLib instance for production current sensing
+    #ifndef SIMULATION_MODE
+    EnergyMonitor emon1_;
+    #endif
     
     /**
      * @brief Read raw ADC value with averaging

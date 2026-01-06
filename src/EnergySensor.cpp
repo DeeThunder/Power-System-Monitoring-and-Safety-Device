@@ -11,6 +11,9 @@ void EnergySensor::begin() {
     pinMode(PIN_VOLTAGE_SENSOR, INPUT);
     pinMode(PIN_CURRENT_SENSOR, INPUT);
     
+    // Set ADC resolution to 12-bit for better precision
+    analogReadResolution(12);
+    
     // Set ADC attenuation for 0-3.3V range
     analogSetAttenuation(ADC_11db);  // 0-3.3V range
     
@@ -21,10 +24,13 @@ void EnergySensor::begin() {
         #endif
     #else
         simulationMode_ = false;
-        #ifdef DEBUG_SERIAL
-            Serial.println("[EnergySensor] Initialized in PRODUCTION mode");
+        #ifdef APP_DEBUG
+            Serial.println("[EnergySensor] Initialized in PRODUCTION mode with EmonLib");
+            Serial.printf("[EnergySensor] Current calibration factor: %.1f\n", CURRENT_CALIBRATION_FACTOR);
         #endif
-        // TODO: Initialize EmonLib here
+        // Initialize EmonLib for current sensing
+        // SCT-013-100: 100A/1V sensor with voltage divider
+        emon1_.current(PIN_CURRENT_SENSOR, CURRENT_CALIBRATION_FACTOR);
     #endif
 }
 
@@ -49,14 +55,40 @@ void EnergySensor::update() {
             
             const float alpha = 0.2; 
             voltage_ = (alpha * rawVoltage) + ((1.0 - alpha) * voltage_);
-            current_ = (alpha * rawCurrent) + ((1.0 - alpha) * current_);
+            
+            // If current drops to 0 (below noise threshold), reset immediately
+            // Otherwise apply smoothing
+            if (rawCurrent == 0.0) {
+                current_ = 0.0;
+            } else {
+                current_ = (alpha * rawCurrent) + ((1.0 - alpha) * current_);
+            }
         }
         
     } else {
         #ifndef SIMULATION_MODE
-            // TODO: Read from EmonLib
-            // voltage_ = readVoltageProduction();
-            // current_ = readCurrentProduction();
+            // Production mode: Use EmonLib for current, simulation for voltage
+            voltage_ = readVoltageSimulation();
+            
+            // Take multiple samples and average for stability
+            double sum = 0;
+            for (int i = 0; i < CURRENT_NUM_AVERAGES; i++) {
+                double Irms = emon1_.calcIrms(CURRENT_EMON_SAMPLES);
+                sum += Irms;
+                delay(100); // Small delay between samples
+            }
+            double avgCurrent = sum / CURRENT_NUM_AVERAGES;
+            
+            // Basic noise floor removal
+            if (avgCurrent < CURRENT_NOISE_THRESHOLD) {
+                avgCurrent = 0;
+            }
+            
+            current_ = avgCurrent;
+            
+            #ifdef APP_DEBUG
+                Serial.printf("[EnergySensor] EmonLib Current: %.2f A\n", current_);
+            #endif
         #endif
     }
     
@@ -163,23 +195,26 @@ float EnergySensor::readVoltageSimulation() {
 }
 
 float EnergySensor::readCurrentSimulation() {
-    // Current sensor (SCT-013) AC reading with RMS calculation
-    const int numSamples = 500;
+    // Current sensor (SCT-013-100) AC reading with RMS calculation
+    // Enhanced EMI filtering with more samples and better settling time
+    const int numSamples = 1000;  // Increased for better noise rejection
     const float adcVoltageRef = 3.3;
     float sum = 0.0;
     float sumSquares = 0.0;
     
-    // Arrays to store samples for two-pass algorithm (optional) 
-    // or just use a digital filter. For simplicity and memory (no large arrays),
-    // let's use the standard DC-offset removal filter (like EmonLib)
-    // or a simple two-pass which is more accurate if we can't do continuous sampling.
-    // Given the short sample time, two-pass is fine.
-    
-    // Pass 1: Calculate Mean (DC Bias)
+    // Two-pass algorithm for accurate DC bias removal
+    // Pass 1: Calculate Mean (DC Bias) with ADC settling
     long biasSum = 0;
+    
+    // Discard first few samples to allow ADC to settle
+    for (int i = 0; i < 10; i++) {
+        analogRead(PIN_CURRENT_SENSOR);
+        delayMicroseconds(50);
+    }
+    
     for (int i = 0; i < numSamples; i++) {
         biasSum += analogRead(PIN_CURRENT_SENSOR);
-        delayMicroseconds(100);
+        delayMicroseconds(200);  // Longer delay for better AC cycle coverage
     }
     float dcBias = biasSum / (float)numSamples;
     
@@ -188,7 +223,7 @@ float EnergySensor::readCurrentSimulation() {
         float sample = analogRead(PIN_CURRENT_SENSOR);
         float acValue = sample - dcBias;
         sumSquares += (acValue * acValue);
-        delayMicroseconds(100);
+        delayMicroseconds(200);  // Match Pass 1 timing
     }
     
     // Convert to RMS ADC coordinates
@@ -197,10 +232,36 @@ float EnergySensor::readCurrentSimulation() {
     // Convert to Voltage (at ADC input)
     float rmsVoltage = (rmsADC / (float)ADC_RESOLUTION) * adcVoltageRef;
     
+    // EMI Rejection: If RMS voltage is extremely low (< 1mV), it's likely EMI noise
+    // Real current flow produces higher RMS voltages
+    if (rmsVoltage < 0.001) {  // Less than 1mV = EMI noise
+        #ifdef APP_DEBUG
+            Serial.printf("[EnergySensor] EMI detected - RMS too low: %.6fV\n", rmsVoltage);
+        #endif
+        return 0.0;
+    }
+    
     // Convert RMS voltage to Current using calibration factor
-    // SCT-013-030: 1V RMS output @ 30A max current
+    // SCT-013-100: 1V RMS output @ 100A max current
     // Formula: Current (A) = RMS Voltage (V) × Calibration Factor
-    float current = rmsVoltage * CURRENT_CALIBRATION_FACTOR;
+    float rawCurrent = rmsVoltage * CURRENT_CALIBRATION_FACTOR;
+    
+    // Apply calibration correction for DC offset and scaling
+    // Calibrated using two points (fresh raw readings):
+    // - Raw 0.19A → Actual 0.05A (clamp meter, low current)
+    // - Raw 0.20A → Actual 0.41A (clamp meter, high current)
+    // 
+    // Linear regression: Actual = m × Raw + b
+    // Slope (m) = (0.41 - 0.05) / (0.20 - 0.19) = 36.0
+    // Intercept (b) = 0.05 - (36.0 × 0.19) = -6.79
+    // 
+    // Formula: Actual = (Raw × 36.0) - 6.79
+    float current = (rawCurrent * 36.0) - 6.79;
+    
+    // Prevent negative readings from offset
+    if (current < 0) {
+        current = 0.0;
+    }
     
     // Noise gate - filter out readings below threshold
     if (current < CURRENT_NOISE_THRESHOLD) {
@@ -208,8 +269,10 @@ float EnergySensor::readCurrentSimulation() {
     }
     
     #ifdef APP_DEBUG
-        Serial.printf("[EnergySensor] Current - DC Bias: %.2f, RMS ADC: %.2f, RMS V: %.4fV, I: %.3fA\n", 
-                      dcBias, rmsADC, rmsVoltage, current);
+        Serial.printf("[EnergySensor] Current - DC Bias: %.2f, RMS ADC: %.2f, RMS V: %.4fV, Raw I: %.3fA, Corrected I: %.3fA\n", 
+                      dcBias, rmsADC, rmsVoltage, rawCurrent, current);
+        Serial.printf("[EnergySensor] Current - Final: %.3fA (After noise gate: %.2fA threshold)\n", 
+                      current, CURRENT_NOISE_THRESHOLD);
     #endif
     
     return current;

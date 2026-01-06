@@ -34,8 +34,7 @@
 // ============================================================================
 
 // Relay Configuration
-// NOTE: Using NO (Normally Open) pin - relay must be energized to close contact and allow power flow
-// CW-020 Relay Module: LOW-LEVEL TRIGGER (Active LOW)
+
 // LOW = Relay energizes (ON), HIGH = Relay de-energizes (OFF)
 #define RELAY_ACTIVE_HIGH     true
 
@@ -92,11 +91,14 @@
 #define VOLTAGE_ZERO_POINT          2.19   // VCC/2 for ZMPT101B (adjust if needed)
 #define VOLTAGE_NOISE_THRESHOLD     75.0   // Ignore readings below this (ghost voltage)
 
-// Current Sensor Calibration (SCT-013-030: 1V output @ 30A max)
-#define CURRENT_CALIBRATION_FACTOR 30.0  // SCT-013-030 outputs 1V @ 30A
-#define CURRENT_SLOPE         0.0073 // Legacy: Calibrated for 0-30A range (30/4095 ≈ 0.0073)
-#define CURRENT_INTERCEPT     0.0    // Adjust after calibration
-#define CURRENT_NOISE_THRESHOLD 0.01 // Ignore readings below this (10mA noise floor)
+// Current Sensor Calibration (SCT-013-100: 1V output @ 100A max)
+// Hardware: 10kΩ + 10kΩ voltage divider (50% division), 100µF capacitor
+// Empirically calibrated: at 0.38A actual, factor 14.5 gave 0.44A reading
+// Fine-tuned: 14.5 × (0.38 / 0.44) ≈ 13.0
+#define CURRENT_CALIBRATION_FACTOR 13.0  // EmonLib calibration factor
+#define CURRENT_EMON_SAMPLES  1660       // Number of samples for EmonLib calcIrms
+#define CURRENT_NUM_AVERAGES  5          // Number of readings to average for stability
+#define CURRENT_NOISE_THRESHOLD 0.01     // Ignore readings below this (10mA - noise floor)
 
 // ADC Configuration
 #define ADC_RESOLUTION        4095   // 12-bit ADC (0-4095)
