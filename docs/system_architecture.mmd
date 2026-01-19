@@ -1,0 +1,51 @@
+graph TD
+    %% High Voltage Section
+    subgraph Power_System ["High Voltage AC System (220V)"]
+        Mains((AC Mains Source)) ==>|Live Wire| Relay_Module[Relay Module]
+        Relay_Module ==>|Switched Live| Load(Electrical Load)
+        Mains -.->|Neutral Wire| Load
+    end
+
+    %% Sensor Section
+    subgraph Sensors ["Input Sensors"]
+        Mains -- "Voltage Sensing" --> ZMPT[ZMPT101B Voltage Sensor]
+        Relay_Module -- "Current Sensing" --> SCT[SCT-013 Current Sensor]
+    end
+
+    %% Microcontroller Section
+    subgraph ESP32_System ["ESP32 Control System"]
+        ZMPT -- "Analog Signal (GPIO 34)" --> ADC1
+        SCT -- "Analog Signal (GPIO 35)" --> ADC1
+        
+        ADC1[ADC Sampling] --> RMS[RMS Calculation]
+        RMS --> Safety_Check{"Safety Check\n(V > 249V?)"}
+
+        Safety_Check -- "Normal" --> Update_UI[Update UI & WiFi]
+        Safety_Check -- "Fault Detected" --> Trigger_Trip[Trip Protection]
+    end
+
+    %% Output Section
+    subgraph Actuators ["Actuators & Display"]
+        Update_UI -- "I2C (GPIO 21/22)" --> OLED[OLED Display]
+        Update_UI -- "PWM (GPIO 25/32/33)" --> RGB_Led[RGB Status LED]
+        Trigger_Trip -- "Digital (GPIO 26)" --> Relay_Module
+    end
+
+    %% Cloud Section
+    subgraph Cloud ["IoT"]
+        Update_UI -.->|WiFi| Blynk_Cloud[Blynk Server]
+        Blynk_Cloud <-->|Virtual Pins| Mobile_App[Mobile App]
+    end
+
+    %% Styling
+    classDef highVoltage fill:#ffcccc,stroke:#ff0000,stroke-width:2px;
+    classDef esp fill:#ccffcc,stroke:#00ff00,stroke-width:2px;
+    classDef sensor fill:#ffffcc,stroke:#aaaa00,stroke-width:2px;
+    classDef ui fill:#ccccff,stroke:#0000ff,stroke-width:2px;
+    classDef cloud fill:#e0e0e0,stroke:#333333,stroke-dasharray: 5 5;
+
+    class Power_System,Mains,Load,Relay_Module highVoltage;
+    class ESP32_System,ADC1,RMS,Safety_Check esp;
+    class Sensors,ZMPT,SCT sensor;
+    class Actuators,OLED,RGB_Led ui;
+    class Cloud,Blynk_Cloud,Mobile_App cloud;
