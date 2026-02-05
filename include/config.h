@@ -151,7 +151,7 @@
 // PERFORMANCE LOGGING CONFIGURATION
 // ============================================================================
 // Enable performance logging (uncomment to enable)
-// #define ENABLE_PERFORMANCE_LOGGING
+#define ENABLE_PERFORMANCE_LOGGING
 
 #ifdef ENABLE_PERFORMANCE_LOGGING
     #define PERF_ACCURACY_INTERVAL_MS  10000  // Log accuracy every 10 seconds

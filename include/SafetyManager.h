@@ -2,6 +2,7 @@
 #define SAFETY_MANAGER_H
 
 #include <Arduino.h>
+#include <functional>
 
 /**
  * @brief Safety Manager Module
@@ -21,6 +22,7 @@ public:
     void clearFault();
     void updateBlink();
     void setBlinking(bool enable);
+    bool isPowerPresent() const;
 
 private:
     bool relayTripped_;
@@ -37,15 +39,14 @@ private:
     // Power state tracking for notifications
     bool powerWasPresent_;
     unsigned long lastPowerChangeTime_;
-    
-    bool checkOverVoltage(float voltage);
     bool checkUnderVoltage(float voltage);
+    bool checkOverVoltage(float voltage);
     bool checkOverCurrent(float current);
     void setRelayState(bool energize);
     
 public:
     // Callback for power state changes (for notifications)
-    void (*powerStateCallback)(bool powerPresent) = nullptr;
+    std::function<void(bool)> powerStateCallback = nullptr;
 };
 
 #endif // SAFETY_MANAGER_H

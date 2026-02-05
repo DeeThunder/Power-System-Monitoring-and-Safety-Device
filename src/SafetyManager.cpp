@@ -239,6 +239,10 @@ bool SafetyManager::checkOverCurrent(float current) {
     }
 }
 
+bool SafetyManager::isPowerPresent() const {
+    return powerWasPresent_;
+}
+
 void SafetyManager::setRelayState(bool energize) {
     #if RELAY_ACTIVE_HIGH
         // Active HIGH + NO pin: HIGH = energized (NO contact closed, power flows)

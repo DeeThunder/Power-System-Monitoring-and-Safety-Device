@@ -83,6 +83,13 @@ private:
     unsigned long lastDisplayUpdate_;
     unsigned long lastSafetyCheck_;
     
+    // Notification tracking
+    bool blynkWasConnected_;
+    bool powerOutageNotified_;
+    bool faultNotified_;
+    bool powerWasPresent_;
+    unsigned long lastNotificationTime_;
+    
     /**
      * @brief Execute STATE_BOOT logic
      */

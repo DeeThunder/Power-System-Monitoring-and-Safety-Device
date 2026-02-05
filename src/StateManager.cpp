@@ -11,21 +11,46 @@ StateManager::StateManager(EnergySensor& sensor, DisplayManager& display,
     : sensor_(sensor), display_(display), network_(network), safety_(safety),
       currentState_(STATE_BOOT), previousState_(STATE_BOOT),
       stateEntryTime_(0), lastSensorRead_(0), lastDisplayUpdate_(0),
-      lastSafetyCheck_(0) {
+      lastSafetyCheck_(0),
+      blynkWasConnected_(false), powerOutageNotified_(false),
+      faultNotified_(false), powerWasPresent_(true),
+      lastNotificationTime_(0) {
 }
+
+// Minimum time between notifications to avoid Blynk rate limits
+const unsigned long NOTIFICATION_INTERVAL_MS = 1000;
 
 void StateManager::begin() {
     setState(STATE_BOOT);
     
     // Set up power state change callback for notifications
+    // Set up power state change callback for notifications
     safety_.powerStateCallback = [this](bool powerPresent) {
+        unsigned long now = millis();
+        // Simple throttle check
+        bool canSend = (now - lastNotificationTime_ >= NOTIFICATION_INTERVAL_MS);
+        
         if (powerPresent) {
             // Power restored
-            network_.sendAlert("POWER RESTORED: Mains voltage detected");
+            powerOutageNotified_ = false;  // Reset for next outage
+            if (network_.isBlynkConnected() && canSend) {
+                network_.sendAlert("POWER RESTORED: Mains voltage detected");
+                lastNotificationTime_ = now;
+            }
+            // Note: If throttled, we might miss "POWER RESTORED", but 3s debounce makes collision rare.
+            // "POWER OUTAGE" is the critical one to ensure we catch up.
         } else {
             // Power outage
-            network_.sendAlert("POWER OUTAGE: Mains voltage lost");
+            if (network_.isBlynkConnected() && canSend) {
+                network_.sendAlert("POWER OUTAGE: Mains voltage lost");
+                powerOutageNotified_ = true;
+                lastNotificationTime_ = now;
+            } else {
+                // Not connected OR throttled - mark as not notified so update() can catch up
+                powerOutageNotified_ = false;
+            }
         }
+        powerWasPresent_ = powerPresent;
     };
     
     #ifdef APP_DEBUG
@@ -34,6 +59,45 @@ void StateManager::begin() {
 }
 
 void StateManager::update() {
+    // Detect Blynk reconnection edge
+    bool blynkConnected = network_.isBlynkConnected();
+    bool reconnectionEdge = blynkConnected && !blynkWasConnected_;
+    blynkWasConnected_ = blynkConnected;
+    
+    // Sync-on-Reconnect Logic
+    if (reconnectionEdge) {
+        #ifdef APP_DEBUG
+            Serial.println("[StateManager] Blynk connection detected - verifying status for catch-up alerts");
+        #endif
+        
+        unsigned long now = millis();
+        // Check if we can send notification now
+        if (now - lastNotificationTime_ >= NOTIFICATION_INTERVAL_MS) {
+            
+            // 1. Check Power Status
+            if (!safety_.isPowerPresent() && !powerOutageNotified_) {
+                network_.sendAlert("POWER OUTAGE: Mains voltage lost");
+                powerOutageNotified_ = true;
+                lastNotificationTime_ = now;
+                #ifdef APP_DEBUG
+                    Serial.println("[StateManager] Catch-up: Sent POWER OUTAGE alert");
+                #endif
+                return; // Only send one alert per loop to respect rate limit
+            }
+            
+            // 2. Check Fault Status
+            if (currentState_ == STATE_TRIP_PROTECTION && !faultNotified_) {
+                network_.sendAlert(safety_.getLastFaultReason());
+                faultNotified_ = true;
+                lastNotificationTime_ = now;
+                #ifdef APP_DEBUG
+                    Serial.printf("[StateManager] Catch-up: Sent fault alert: %s\n", 
+                                   safety_.getLastFaultReason().c_str());
+                #endif
+            }
+        }
+    }
+    
     // Execute current state logic
     switch (currentState_) {
         case STATE_BOOT:
@@ -171,7 +235,7 @@ void StateManager::handleManualSwitch(bool turnOn) {
         safety_.setBlinking(true);
         
         // Send notification
-        network_.sendAlert("LOAD SWITCHED OFF: Power ON via Blynk");
+        network_.sendAlert("LOAD SWITCHED OFF: Manual control via Blynk");
         
         #ifdef APP_DEBUG
             Serial.println("[StateManager] Manual OFF - relay de-energized, blinking orange");
@@ -368,7 +432,21 @@ void StateManager::onStateEnter() {
         case STATE_TRIP_PROTECTION:
             safety_.setRGBStatus(RGB_RED);  // Red = Trip/Fault
             safety_.tripRelay();  // Ensure relay is OFF
-            network_.sendAlert(safety_.getLastFaultReason());
+            
+            if (network_.isBlynkConnected()) {
+                unsigned long now = millis();
+                // Check throttle
+                if (now - lastNotificationTime_ >= NOTIFICATION_INTERVAL_MS) {
+                    network_.sendAlert(safety_.getLastFaultReason());
+                    faultNotified_ = true;
+                    lastNotificationTime_ = now;
+                } else {
+                    faultNotified_ = false;  // Mark for catch-up in update() loop
+                }
+            } else {
+                faultNotified_ = false;  // Mark for catch-up on reconnect
+            }
+            
             network_.updateState("TRIP: " + safety_.getLastFaultReason());
             network_.updateSwitchState(false);  // Auto-toggle switch to OFF
             #ifdef APP_DEBUG
