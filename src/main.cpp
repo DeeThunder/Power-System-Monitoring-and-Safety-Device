@@ -51,7 +51,7 @@ void setup() {
     #ifdef APP_DEBUG
         Serial.begin(115200);
         delay(1000);  // Only delay in setup for serial stability
-        Serial.println("\n\n========================================");
+        Serial.println("========================================");
         Serial.println("Smart Energy Monitoring System");
         Serial.println("========================================\n");
     #endif

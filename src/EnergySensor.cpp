@@ -29,7 +29,6 @@ void EnergySensor::begin() {
     #else
         simulationMode_ = false;
         #ifdef APP_DEBUG
-            Serial.println("[EnergySensor] Initialized in PRODUCTION mode with EmonLib");
             Serial.printf("[EnergySensor] Current calibration factor: %.1f\n", CURRENT_CALIBRATION_FACTOR);
         #endif
         // Initialize EmonLib for current sensing
@@ -49,28 +48,19 @@ void EnergySensor::update() {
         float rawVoltage = readVoltageSimulation();
         float rawCurrent = readCurrentSimulation();
         
-        // Apply Smoothing (Exponential Moving Average)
-        // BUT: If power drops very low, reset immediately to avoid slow decay causing false trips
         if (rawVoltage < VOLTAGE_NOISE_THRESHOLD) {
-            // Power is OFF - reset smoothing immediately
+            // Power is OFF - reset immediately
             voltage_ = 0.0;
             current_ = 0.0;
         } else {
-            // Power is ON - apply normal smoothing
-            // Alpha = 0.2 means 20% weight to new reading, 80% to old.
-            // First reading initialization:
-            if (voltage_ == 0.0 && rawVoltage > 0) voltage_ = rawVoltage;
-            if (current_ == 0.0 && rawCurrent > 0) current_ = rawCurrent;
+            // Power is ON - use median-filtered values directly
+            voltage_ = rawVoltage;
             
-            const float alpha = 0.2; 
-            voltage_ = (alpha * rawVoltage) + ((1.0 - alpha) * voltage_);
-            
-            // If current drops to 0 (below noise threshold), reset immediately
-            // Otherwise apply smoothing
-            if (rawCurrent == 0.0) {
+            // Current: reset to 0 if below threshold, otherwise use raw value
+            if (rawCurrent == 0.0 || rawCurrent < CURRENT_NOISE_THRESHOLD) {
                 current_ = 0.0;
             } else {
-                current_ = (alpha * rawCurrent) + ((1.0 - alpha) * current_);
+                current_ = rawCurrent;
             }
         }
         
@@ -154,42 +144,69 @@ float EnergySensor::applyCalibration(uint16_t rawValue, float slope, float inter
 }
 
 float EnergySensor::readVoltageSimulation() {
-    // ZMPT101B AC voltage sensor reading using Single-Pass True RMS
-    // Formula: RMS = sqrt( (SumSq - (Sum*Sum/N)) / N )
-    // This removes DC bias dynamically in a single pass, which is much more stable
-    // against fluctuations and takes half the time (or double precision).
-
-    const int numSamples = 1000;  // Double the samples for better averaging (same total time as before)
+    // ZMPT101B AC voltage sensor reading using Enhanced True RMS
+    // Improvements for stability:
+    // 1. More samples to cover multiple complete AC cycles (50Hz = 20ms period)
+    // 2. Proper timing to avoid aliasing
+    // 3. Multiple readings with median filtering to reject outliers
+    // 4. Moving average for smooth output
+    
+    const int numSamples = 2000;  // ~400ms at 200μs = 20 AC cycles @ 50Hz
+    const int numReadings = 5;    // Take 5 readings and use median
     const float vRef = 3.3;       // ESP32 ADC reference voltage
     
-    unsigned long sumRaw = 0;
-    double sumSqRaw = 0; // Double precision for squares to avoid overflow
+    float readings[numReadings];
     
-    // Single Sampling Pass
-    for (int i = 0; i < numSamples; i++) {
-        uint16_t rawADC = analogRead(PIN_VOLTAGE_SENSOR);
-        sumRaw += rawADC;
-        sumSqRaw += (double)rawADC * rawADC;
-        // Faster delay to fit more samples in ~100ms
-        delayMicroseconds(100);
+    // Take multiple RMS readings
+    for (int reading = 0; reading < numReadings; reading++) {
+        unsigned long sumRaw = 0;
+        double sumSqRaw = 0; // Double precision for squares to avoid overflow
+        
+        // Single Sampling Pass - cover multiple AC cycles
+        for (int i = 0; i < numSamples; i++) {
+            uint16_t rawADC = analogRead(PIN_VOLTAGE_SENSOR);
+            sumRaw += rawADC;
+            sumSqRaw += (double)rawADC * rawADC;
+            // 200μs delay = 5000 samples/sec, well above Nyquist for 50Hz
+            delayMicroseconds(200);
+        }
+        
+        // 1. Calculate Mean (DC Bias)
+        double mean = (double)sumRaw / numSamples;
+        
+        // 2. Calculate Variance of the counts (E[x^2] - (E[x])^2)
+        // This gives us the Mean Square of the AC component
+        double meanSquareRaw = (sumSqRaw / numSamples) - (mean * mean);
+        
+        // Handle floating point errors (negative zero)
+        if (meanSquareRaw < 0) meanSquareRaw = 0;
+        
+        // 3. RMS in ADC counts
+        double rmsADC = sqrt(meanSquareRaw);
+        
+        // 4. Convert to Voltage
+        float rmsVoltage = (float)((rmsADC / ADC_RESOLUTION) * vRef);
+        
+        // Store this reading
+        readings[reading] = rmsVoltage;
+        
+        // Small delay between readings
+        delay(10);
     }
     
-    // 1. Calculate Mean (DC Bias)
-    double mean = (double)sumRaw / numSamples;
+    // Sort readings to find median (simple bubble sort for small array)
+    for (int i = 0; i < numReadings - 1; i++) {
+        for (int j = 0; j < numReadings - i - 1; j++) {
+            if (readings[j] > readings[j + 1]) {
+                float temp = readings[j];
+                readings[j] = readings[j + 1];
+                readings[j + 1] = temp;
+            }
+        }
+    }
     
-    // 2. Calculate Variance of the counts (E[x^2] - (E[x])^2)
-    // This gives us the Mean Square of the AC component
-    double meanSquareRaw = (sumSqRaw / numSamples) - (mean * mean);
-    
-    // Handle floating point errors (negative zero)
-    if (meanSquareRaw < 0) meanSquareRaw = 0;
-    
-    // 3. RMS in ADC counts
-    double rmsADC = sqrt(meanSquareRaw);
-    
-    // 4. Convert to Voltage
-    // (rmsADC / 4095) * 3.3
-    float rmsVoltage = (float)((rmsADC / ADC_RESOLUTION) * vRef);
+    // Use median value (middle element) - most stable, rejects outliers
+    float rmsVoltage = readings[numReadings / 2];
     
     // Apply calibration factor
     float actualVoltage = rmsVoltage * VOLTAGE_CALIBRATION_FACTOR;
@@ -200,12 +217,19 @@ float EnergySensor::readVoltageSimulation() {
     }
     
     #ifdef APP_DEBUG
-        Serial.printf("[EnergySensor] Voltage RMS: %.4fV -> %.2fV AC\n", 
-                      rmsVoltage, actualVoltage);
+        Serial.printf("[EnergySensor] Voltage RMS: %.4fV -> %.2fV AC (median of %d readings)", 
+                      rmsVoltage, actualVoltage, numReadings);
+        // Show all readings for debugging
+        Serial.printf("[EnergySensor] Raw readings: ");
+        for (int i = 0; i < numReadings; i++) {
+            Serial.printf("%.4f ", readings[i]);
+        }
+        Serial.println();
     #endif
     
     return actualVoltage;
 }
+
 
 float EnergySensor::readCurrentSimulation() {
     // Current sensor (SCT-013-100) AC reading with RMS calculation

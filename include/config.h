@@ -82,20 +82,21 @@
 // ============================================================================
 // CALIBRATION CONSTANTS
 // ============================================================================
-
-// Voltage Sensor Calibration (ZMPT101B - RMS based)
-// The calibration factor converts RMS voltage reading to actual AC mains voltage
 // 
 // HOW TO CALIBRATE PROPERLY:
-// 1. Enable APP_DEBUG in platformio.ini to see raw RMS voltage
-// 2. Measure actual mains voltage with multimeter (e.g., 211V)
+// 2. Measure actual mains voltage with multimeter
 // 3. Check serial output for "Voltage RMS: X.XXXXV" (this is rmsVoltage)
 // 4. Calculate: VOLTAGE_CALIBRATION_FACTOR = Multimeter_Reading / rmsVoltage
-//    Example: If multimeter shows 211V and rmsVoltage is 0.227V
-//             Factor = 211 / 0.227 = 929.5
-#define VOLTAGE_CALIBRATION_FACTOR  965.9  // TODO: Calibrate using method above
+
+#define VOLTAGE_CALIBRATION_FACTOR  520 // TODO: Calibrate using method above
 #define VOLTAGE_ZERO_POINT          2.19   // VCC/2 for ZMPT101B (adjust if needed)
 #define VOLTAGE_NOISE_THRESHOLD     75.0   // Ignore readings below this (ghost voltage)
+
+// Voltage Sensor Sampling Parameters (for stability)
+#define VOLTAGE_NUM_SAMPLES         2000   // Samples per reading (~400ms, covers 20 AC cycles @ 50Hz)
+#define VOLTAGE_NUM_READINGS        5      // Multiple readings for median filtering
+#define VOLTAGE_SAMPLE_DELAY_US     200    // Microseconds between samples (5kHz sampling rate)
+
 
 // Current Sensor Calibration (SCT-013-100: 1V output @ 100A max)
 // Hardware: 10kΩ + 10kΩ voltage divider (50% division), 100µF capacitor
@@ -149,10 +150,7 @@
 // ============================================================================
 // PERFORMANCE LOGGING CONFIGURATION
 // ============================================================================
-
 // Enable performance logging (uncomment to enable)
-// Outputs CSV-formatted data via Serial for PC capture
-// Use tools/performance_logger.py to save data to CSV files
 #define ENABLE_PERFORMANCE_LOGGING
 
 #ifdef ENABLE_PERFORMANCE_LOGGING
