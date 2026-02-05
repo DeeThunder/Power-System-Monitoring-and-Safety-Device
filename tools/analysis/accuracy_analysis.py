@@ -17,7 +17,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from pathlib import Path
 
 # Configuration
-DATA_FILE = '../../performance_data/accuracy.csv'
+DATA_FILE = '../performance_data/accuracy.csv'
 OUTPUT_DIR = 'results/accuracy'
 FIGURE_DIR = f'{OUTPUT_DIR}/figures'
 

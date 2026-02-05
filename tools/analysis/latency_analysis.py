@@ -16,7 +16,7 @@ from scipy import stats
 from pathlib import Path
 
 # Configuration
-DATA_FILE = '../../performance_data/latency.csv'
+DATA_FILE = '../performance_data/latency.csv'
 OUTPUT_DIR = 'results/latency'
 FIGURE_DIR = f'{OUTPUT_DIR}/figures'
 

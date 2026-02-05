@@ -15,8 +15,8 @@ from pathlib import Path
 from scipy import stats
 
 # Configuration
-LATENCY_FILE = '../../performance_data/latency.csv'
-ACCURACY_FILE = '../../performance_data/accuracy.csv'
+LATENCY_FILE = '../performance_data/latency.csv'
+ACCURACY_FILE = '../performance_data/accuracy.csv'
 OUTPUT_DIR = 'results/system_metrics'
 FIGURE_DIR = f'{OUTPUT_DIR}/figures'
 
