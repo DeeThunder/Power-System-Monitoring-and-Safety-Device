@@ -27,32 +27,48 @@ class PerformanceLogger:
         os.makedirs(self.output_dir, exist_ok=True)
         
         # CSV file handles and writers
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Use fixed filenames (no timestamp) for continuous logging
+        self.latency_path = f"{self.output_dir}/latency.csv"
+        self.accuracy_path = f"{self.output_dir}/accuracy.csv"
+        self.trip_path = f"{self.output_dir}/trip_response.csv"
         
-        # Open files in text mode with newline='' for proper CSV handling
-        self.latency_file = open(f"{self.output_dir}/latency_{timestamp}.csv", "w", newline='', encoding='utf-8')
-        self.accuracy_file = open(f"{self.output_dir}/accuracy_{timestamp}.csv", "w", newline='', encoding='utf-8')
-        self.trip_file = open(f"{self.output_dir}/trip_response_{timestamp}.csv", "w", newline='', encoding='utf-8')
+        # Check if files exist to determine mode and whether to write headers
+        latency_exists = os.path.exists(self.latency_path)
+        accuracy_exists = os.path.exists(self.accuracy_path)
+        trip_exists = os.path.exists(self.trip_path)
+        
+        # Open files in append mode if they exist, write mode if new
+        # Open in text mode with newline='' for proper CSV handling
+        self.latency_file = open(self.latency_path, "a" if latency_exists else "w", newline='', encoding='utf-8')
+        self.accuracy_file = open(self.accuracy_path, "a" if accuracy_exists else "w", newline='', encoding='utf-8')
+        self.trip_file = open(self.trip_path, "a" if trip_exists else "w", newline='', encoding='utf-8')
         
         # Create CSV writers
         self.latency_writer = csv.writer(self.latency_file)
         self.accuracy_writer = csv.writer(self.accuracy_file)
         self.trip_writer = csv.writer(self.trip_file)
         
-        # Write headers
-        self.latency_writer.writerow(["DateTime", "Uptime(ms)", "SensorRead(us)", "BlynkTransmit(ms)", "TotalLatency(ms)"])
-        self.accuracy_writer.writerow(["DateTime", "Uptime(ms)", "Voltage(V)", "Current(A)", "Power(W)"])
-        self.trip_writer.writerow(["DateTime", "Uptime(ms)", "FaultDetect(us)", "RelayTrip(us)", "TotalResponse(ms)"])
+        # Write headers only if creating new files
+        if not latency_exists:
+            self.latency_writer.writerow(["DateTime", "Uptime(ms)", "SensorRead(us)", "BlynkTransmit(ms)", "TotalLatency(ms)"])
+        if not accuracy_exists:
+            self.accuracy_writer.writerow(["DateTime", "Uptime(ms)", "Voltage(V)", "Current(A)", "Power(W)"])
+        if not trip_exists:
+            self.trip_writer.writerow(["DateTime", "Uptime(ms)", "FaultDetect(us)", "RelayTrip(us)", "TotalResponse(ms)"])
         
-        # Flush to ensure headers are written
+        # Flush to ensure headers are written (if new files)
         self.latency_file.flush()
         self.accuracy_file.flush()
         self.trip_file.flush()
         
         print(f"[*] Saving data to: {self.output_dir}/")
-        print(f"   - latency_{timestamp}.csv")
-        print(f"   - accuracy_{timestamp}.csv")
-        print(f"   - trip_response_{timestamp}.csv")
+        if latency_exists or accuracy_exists or trip_exists:
+            print(f"   - Appending to existing CSV files")
+        else:
+            print(f"   - Creating new CSV files")
+        print(f"   - latency.csv {'(appending)' if latency_exists else '(new)'}")
+        print(f"   - accuracy.csv {'(appending)' if accuracy_exists else '(new)'}")
+        print(f"   - trip_response.csv {'(appending)' if trip_exists else '(new)'}")
     
     def connect(self):
         """Connect to ESP32 via Serial"""

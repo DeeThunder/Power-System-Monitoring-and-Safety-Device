@@ -85,9 +85,15 @@
 
 // Voltage Sensor Calibration (ZMPT101B - RMS based)
 // The calibration factor converts RMS voltage reading to actual AC mains voltage
-// Typical range: 100-200 (depends on ZMPT101B burden resistor and transformer ratio)
-// To calibrate: Measure known AC voltage with multimeter, adjust factor in EnergySensor.cpp
-#define VOLTAGE_CALIBRATION_FACTOR  556.0  // Adjusted for ~223V reading -> 228V
+// 
+// HOW TO CALIBRATE PROPERLY:
+// 1. Enable APP_DEBUG in platformio.ini to see raw RMS voltage
+// 2. Measure actual mains voltage with multimeter (e.g., 211V)
+// 3. Check serial output for "Voltage RMS: X.XXXXV" (this is rmsVoltage)
+// 4. Calculate: VOLTAGE_CALIBRATION_FACTOR = Multimeter_Reading / rmsVoltage
+//    Example: If multimeter shows 211V and rmsVoltage is 0.227V
+//             Factor = 211 / 0.227 = 929.5
+#define VOLTAGE_CALIBRATION_FACTOR  965.9  // TODO: Calibrate using method above
 #define VOLTAGE_ZERO_POINT          2.19   // VCC/2 for ZMPT101B (adjust if needed)
 #define VOLTAGE_NOISE_THRESHOLD     75.0   // Ignore readings below this (ghost voltage)
 

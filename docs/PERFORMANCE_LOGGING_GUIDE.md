@@ -31,17 +31,15 @@ pio run -t upload
 
 ### Step 3: Start PC Logger
 
-Open a terminal and run:
-
 ```bash
 # Windows
-python tools/performance_logger.py COM3 115200
+python tools/performance_logger.py COM11 115200
 
 # Linux/Mac
 python tools/performance_logger.py /dev/ttyUSB0 115200
 ```
 
-**Note:** Replace `COM3` with your actual COM port. Check Device Manager (Windows) or `ls /dev/tty*` (Linux/Mac).
+**Note:** Replace `COM11` with your actual COM port. Check Device Manager (Windows) or `ls /dev/tty*` (Linux/Mac).
 
 ### Step 4: Collect Data
 
@@ -50,13 +48,15 @@ Let the system run for your desired duration:
 - **Full evaluation**: 1-24 hours
 - **Stress test**: Vary loads, trigger faults
 
+You can stop the logger (Ctrl+C) and restart it later - data will continue appending to the same files.
+
 ### Step 5: Stop and Analyze
 
-Press `Ctrl+C` in the Python script to stop logging. CSV files will be saved in the `performance_data/` directory.
+Press `Ctrl+C` in the Python script to stop logging. CSV files are continuously saved in the `performance_data/` directory.
 
 ## CSV File Format
 
-### latency_YYYYMMDD_HHMMSS.csv
+### latency.csv
 
 ```csv
 Timestamp(ms),SensorRead(us),BlynkTransmit(ms),TotalLatency(ms)
@@ -71,7 +71,7 @@ Timestamp(ms),SensorRead(us),BlynkTransmit(ms),TotalLatency(ms)
 - `BlynkTransmit(ms)`: Blynk transmission time in milliseconds
 - `TotalLatency(ms)`: Total latency (sensor + Blynk)
 
-### accuracy_YYYYMMDD_HHMMSS.csv
+### accuracy.csv
 
 ```csv
 Timestamp(ms),Voltage(V),Current(A),Power(W)
@@ -88,7 +88,7 @@ Timestamp(ms),Voltage(V),Current(A),Power(W)
 
 **Logged every 10 seconds** (configurable in `config.h`)
 
-### trip_response_YYYYMMDD_HHMMSS.csv
+### trip_response.csv
 
 ```csv
 Timestamp(ms),FaultDetect(us),RelayTrip(us),TotalResponse(ms)
@@ -127,8 +127,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Load data
-latency = pd.read_csv('performance_data/latency_20260106_183045.csv')
-accuracy = pd.read_csv('performance_data/accuracy_20260106_183045.csv')
+latency = pd.read_csv('performance_data/latency.csv')
+accuracy = pd.read_csv('performance_data/accuracy.csv')
 
 # Calculate statistics
 print("Latency Statistics:")

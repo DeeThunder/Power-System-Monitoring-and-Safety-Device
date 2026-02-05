@@ -72,16 +72,76 @@ You need to set up "Datastreams" to link the code to the dashboard widgets. Go t
 
 3.  **Upload** the code to your ESP32.
 
-## Step 7: Notifications (Optional)
+## Step 7: Configure Push Notifications
 
-To receive alerts when the system trips:
+To receive push notifications when the system trips, you MUST configure the event in the Blynk Console:
 
-1.  Go to **Templates** -> **Events**.
-2.  Create a new event named `safety_alert`.
-3.  Enable **Send Event to Timeline** and **Send Event to Notifications**.
-4.  Go to **Notifications** tab in the console to configure email or push settings.
+### 7.1 Create Event in Blynk Console
+
+1.  Log into [Blynk Console](https://blynk.cloud/)
+2.  Navigate to **Templates** → Select your template → **Events** tab
+3.  Click **"+ Create Event"** (or edit existing `safety_alert` if it exists)
+4.  Configure the event:
+    - **Event Code**: `safety_alert` (must match exactly)
+    - **Event Name**: "Safety Alert" (display name)
+    - **Description**: "System trip protection triggered"
+    - **Color**: Red (for visibility)
+    - **Send push notification**: ✅ **CHECK THIS BOX** (critical!)
+    - **Recipients**: Select "Device Owner" or "All Users"
+    - **Limit Period**: Set to "No Limit" (for testing) or "1 hour" (for production)
+    - **Event Counter**: Leave at default or set to 1
+5.  Click **Save**
+
+### 7.2 Enable Notifications in Mobile App
+
+1.  Open the **Blynk IoT** app on your phone
+2.  Go to your device
+3.  Tap the **Settings** icon (gear icon)
+4.  Ensure **"Enable Notifications"** is turned ON
+5.  Check your phone's system settings:
+    - Go to **Settings** → **Notifications** → **Blynk**
+    - Ensure notifications are **Allowed**
+    - Turn OFF "Do Not Disturb" mode (if active)
+
+### 7.3 Test Notifications
+
+1.  Trigger a trip event (temporarily lower `VOLTAGE_MAX` in `config.h` to 200V, or disconnect power)
+2.  You should receive:
+    - **Push notification** on your phone
+    - **Timeline entry** in the Blynk app
+    - **Email** (if email notifications are also enabled)
+3.  If you only see the timeline entry but no push notification, review the troubleshooting section below
 
 ## Troubleshooting
 
+### Device Issues
 - **Device Offline?** Check your WiFi credentials in `config.h`.
 - **No Data?** Ensure the ESP32 is connected to the internet and the Auth Token is correct.
+- **Blynk not connecting?** Check serial monitor for connection errors.
+
+### Notification Issues
+- **No push notifications but timeline shows events?**
+  - Verify "Send push notification" is checked in the event configuration
+  - Check phone notification permissions for Blynk app
+  - Disable "Do Not Disturb" mode on your phone
+  - Try uninstalling and reinstalling the Blynk app
+  - Check if you've exceeded the daily notification limit (100 events/day on free plan)
+
+- **Notifications delayed?**
+  - Blynk has a 15-second minimum interval between notifications
+  - Check the "Limit Period" setting in your event configuration
+
+- **Still not working?**
+  - Try enabling **Email notifications** instead (more reliable)
+  - Consider implementing a **Telegram Bot** as an alternative notification method
+  - Check Blynk community forums for known issues
+
+### Alternative Notification Methods
+
+If Blynk push notifications are unreliable, consider these alternatives:
+
+1.  **Email Notifications** (via Blynk): Enable in the same Events tab, more reliable than push
+2.  **Telegram Bot**: Free, reliable, works even when app is closed (requires code modification)
+3.  **SMS via Twilio**: Very reliable but requires paid API subscription
+4.  **IFTTT Webhooks**: Can trigger notifications to multiple platforms
+
