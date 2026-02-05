@@ -114,3 +114,5 @@ secret.h
 
 # Samuel folder (docs)
 samuel/
+PERFORMANCE_ANALYSIS_PLAN.md
+analysis/

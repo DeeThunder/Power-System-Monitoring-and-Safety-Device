@@ -17,6 +17,17 @@ StateManager::StateManager(EnergySensor& sensor, DisplayManager& display,
 void StateManager::begin() {
     setState(STATE_BOOT);
     
+    // Set up power state change callback for notifications
+    safety_.powerStateCallback = [this](bool powerPresent) {
+        if (powerPresent) {
+            // Power restored
+            network_.sendAlert("POWER RESTORED: Mains voltage detected");
+        } else {
+            // Power outage
+            network_.sendAlert("POWER OUTAGE: Mains voltage lost");
+        }
+    };
+    
     #ifdef APP_DEBUG
         Serial.println("[StateManager] Initialized");
     #endif
@@ -158,6 +169,9 @@ void StateManager::handleManualSwitch(bool turnOn) {
         // Enable blinking orange LED to indicate manual OFF
         safety_.setRGBStatus(RGB_ORANGE);
         safety_.setBlinking(true);
+        
+        // Send notification
+        network_.sendAlert("LOAD SWITCHED OFF: Power ON via Blynk");
         
         #ifdef APP_DEBUG
             Serial.println("[StateManager] Manual OFF - relay de-energized, blinking orange");

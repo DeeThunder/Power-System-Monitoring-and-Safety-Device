@@ -9,7 +9,8 @@ SafetyManager::SafetyManager()
     : relayTripped_(false), lastFaultReason_(""), 
       lastVoltage_(0.0), lastCurrent_(0.0),
       blinkEnabled_(false), blinkR_(0), blinkG_(0), blinkB_(0),
-      lastBlinkTime_(0), blinkState_(false) {
+      lastBlinkTime_(0), blinkState_(false),
+      powerWasPresent_(true), lastPowerChangeTime_(0) {
 }
 
 void SafetyManager::begin() {
@@ -48,7 +49,38 @@ bool SafetyManager::checkSafety(float voltage, float current) {
     // CRITICAL: Check if power is present first
     // If voltage is very low (< 100V), the mains is OFF - this is normal, not a fault
     // We should NOT trip in this case, just keep the relay in its current state
-    if (voltage < VOLTAGE_POWER_PRESENT_THRESHOLD) {
+    bool powerPresent = (voltage >= VOLTAGE_POWER_PRESENT_THRESHOLD);
+    
+    // Detect power state changes and notify
+    // Use debouncing: only trigger notification if state has been stable for 3 seconds
+    const unsigned long POWER_CHANGE_DEBOUNCE_MS = 3000;
+    
+    if (powerPresent != powerWasPresent_) {
+        // Power state changed
+        if (millis() - lastPowerChangeTime_ > POWER_CHANGE_DEBOUNCE_MS) {
+            // State has been different for long enough - this is a real change
+            powerWasPresent_ = powerPresent;
+            lastPowerChangeTime_ = millis();
+            
+            // Trigger notification callback
+            if (powerStateCallback != nullptr) {
+                powerStateCallback(powerPresent);
+            }
+            
+            #ifdef APP_DEBUG
+                if (powerPresent) {
+                    Serial.println("[SafetyManager] POWER RESTORED - Mains voltage detected");
+                } else {
+                    Serial.println("[SafetyManager] POWER OUTAGE - Mains voltage lost");
+                }
+            #endif
+        }
+    } else {
+        // State is same as before - reset debounce timer
+        lastPowerChangeTime_ = millis();
+    }
+    
+    if (!powerPresent) {
         #ifdef APP_DEBUG
             // Only log occasionally to avoid spam
             static unsigned long lastPowerOffLog = 0;
@@ -180,6 +212,12 @@ bool SafetyManager::checkOverVoltage(float voltage) {
 }
 
 bool SafetyManager::checkUnderVoltage(float voltage) {
+    // CRITICAL: Only check undervoltage if power is actually present
+    if (voltage < VOLTAGE_POWER_PRESENT_THRESHOLD) {
+        return false;  // Not an undervoltage fault - power is just off
+    }
+    
+    // Power is present - now check if it's too low
     // Check with hysteresis
     if (relayTripped_) {
         // If already tripped, require voltage to rise above (threshold + hysteresis)

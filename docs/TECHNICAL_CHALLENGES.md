@@ -184,6 +184,189 @@ After adjusting physical potentiometer, raw RMS dropped to 0.04-0.06V, causing a
 
 ---
 
+## Challenge 8: Blynk Push Notifications Not Received
+
+### Problem Description
+Events appeared in Blynk timeline but push notifications were not received on mobile device.
+
+### Root Cause
+- Blynk Console event `safety_alert` existed but "Send push notification" checkbox was unchecked
+- Event was configured to send to timeline only, not push notifications
+- Phone notification permissions may also have been disabled
+
+### Solution Implemented
+**Blynk Console Configuration**:
+- Enabled "Send push notification" for `safety_alert` event
+- Enabled "Send to device owner"
+- Configured notification title and body
+
+**Phone Settings Verification**:
+- Android: Enabled notifications, disabled battery optimization for Blynk
+- iOS: Enabled notifications, background app refresh
+
+**Test Button Added**:
+- Created `VPIN_TEST_ALERT` (V10) for manual notification testing
+- Added handler in `NetworkManager.cpp` to trigger test notifications
+- Allows verification without causing actual system trips
+
+### Lessons Learned
+- Blynk events require explicit push notification enablement
+- Timeline and push notifications are separate configuration options
+- Test mechanisms are essential for debugging notification systems
+- Phone-level permissions can block app notifications
+
+---
+
+## Challenge 9: ZMPT101B Voltage Reading Instability
+
+### Problem Description
+ZMPT101B gave unstable/fluctuating RMS voltage readings even when multimeter showed constant voltage.
+
+### Root Cause Analysis
+1. **Insufficient Samples**: Only 1000 samples not covering enough AC cycles
+2. **Fast Sampling**: 100μs delay causing aliasing with 50Hz AC signal
+3. **No Outlier Rejection**: Single noisy reading affected result
+4. **Single Measurement**: No averaging across multiple readings
+
+### Solution Implemented
+**Enhanced RMS Calculation**:
+```cpp
+- Samples: 1000 → 2000 (covers 20 complete AC cycles @ 50Hz)
+- Timing: 100μs → 200μs (5kHz sampling rate, proper for 50Hz)
+- Multi-reading: 5 readings with median filter
+- Outlier rejection: Median of 5 eliminates spikes
+```
+
+**Configuration Parameters** (in `config.h`):
+```cpp
+#define VOLTAGE_NUM_SAMPLES         2000
+#define VOLTAGE_NUM_READINGS        5
+#define VOLTAGE_SAMPLE_DELAY_US     200
+```
+
+### Lessons Learned
+- AC voltage measurement requires covering multiple complete cycles
+- Sampling rate must avoid aliasing (Nyquist theorem)
+- Median filtering superior to averaging for rejecting outliers
+- Configurable parameters allow field tuning without code changes
+
+---
+
+## Challenge 10: Power Outage Triggering Undervoltage Trip
+
+### Problem Description
+When mains power went out (voltage = 0V), system incorrectly triggered "UNDER VOLTAGE" trip instead of recognizing normal power outage.
+
+### Root Cause
+`checkUnderVoltage()` function checked if voltage < 200V without first verifying power was actually present. When voltage = 0V, it satisfied the undervoltage condition and triggered a fault.
+
+### Solution Implemented
+**Modified `checkUnderVoltage()` in `SafetyManager.cpp`**:
+```cpp
+bool SafetyManager::checkUnderVoltage(float voltage) {
+    // Only check undervoltage if power is actually present
+    if (voltage < VOLTAGE_POWER_PRESENT_THRESHOLD) {  // 100V
+        return false;  // Not a fault - power is just off
+    }
+    
+    // Power is present - now check if it's too low
+    if (voltage < VOLTAGE_MIN) {  // 200V
+        return true;  // Actual undervoltage fault
+    }
+}
+```
+
+**Voltage Ranges**:
+- 0-100V: Power outage (normal, no trip)
+- 100-200V: Undervoltage (fault, trip)
+- 200-249V: Normal voltage
+- 249V+: Overvoltage (fault, trip)
+
+### Lessons Learned
+- Fault detection must distinguish between absence of power and low power
+- Context-aware safety checks prevent false alarms
+- Clear threshold definitions improve system reliability
+
+---
+
+## Challenge 11: Power Outage/Restoration Notification System
+
+### Problem Description
+Users had no visibility into mains power status - didn't know when power went out or was restored.
+
+### Requirements
+- Notify when mains power goes out (voltage drops below 100V)
+- Notify when mains power is restored (voltage rises above 100V)
+- Prevent notification spam from voltage fluctuations
+- Work independently of system state
+
+### Solution Implemented
+**Power State Tracking** (in `SafetyManager.h`):
+```cpp
+bool powerWasPresent_;
+unsigned long lastPowerChangeTime_;
+void (*powerStateCallback)(bool powerPresent) = nullptr;
+```
+
+**Debounced State Detection** (in `SafetyManager.cpp`):
+- 3-second debounce prevents false alerts from transient voltage changes
+- Only sends notification when power state has been stable for 3 seconds
+- Callback mechanism allows `StateManager` to send Blynk notifications
+
+**Notification Messages**:
+- Power out: "POWER OUTAGE: Mains voltage lost"
+- Power restored: "POWER RESTORED: Mains voltage detected"
+
+### Lessons Learned
+- Debouncing essential for reliable state change detection
+- Callback pattern allows separation of detection and notification logic
+- Power awareness improves user experience and system transparency
+
+---
+
+## Challenge 12: State Management and Manual Control Confusion
+
+### Problem Description
+Incorrect state transitions when user manually switched load OFF via Blynk - system was going to OFFLINE_MODE instead of staying in NORMAL state.
+
+### Root Cause
+Misunderstanding of state purposes:
+- OFFLINE_MODE was being used for manual switch OFF
+- Actual purpose: OFFLINE_MODE should only be for no internet connection
+
+### Solution Implemented
+**Corrected State Behavior**:
+
+| Action | State | Relay | LED | Notification |
+|--------|-------|-------|-----|--------------|
+| Manual Switch OFF | NORMAL | OFF | Orange Blinking | "LOAD SWITCHED OFF" |
+| No Internet | OFFLINE_MODE | Works Locally | Blue | None |
+
+**Manual Switch OFF** (in `StateManager.cpp`):
+```cpp
+handleManualSwitch(false) {
+    safety_.tripRelay();  // Relay OFF
+    safety_.setRGBStatus(RGB_ORANGE);  // Orange LED
+    safety_.setBlinking(true);  // Blink
+    network_.sendAlert("LOAD SWITCHED OFF: Manual control via Blynk");
+    // State remains unchanged (NORMAL)
+}
+```
+
+**OFFLINE_MODE Purpose**:
+- Only activates when WiFi/internet connection is lost
+- Full local functionality maintained (monitoring, safety, relay control)
+- No Blynk control or data transmission
+- Blue LED indicates offline status
+
+### Lessons Learned
+- State names must clearly reflect their purpose
+- Manual control should not change system operational state
+- LED colors provide intuitive status feedback
+- Notifications inform users of manual actions
+
+---
+
 ## Summary of Solutions Implemented
 
 | Challenge | Solution | Files Modified |
@@ -196,6 +379,11 @@ After adjusting physical potentiometer, raw RMS dropped to 0.04-0.06V, causing a
 | EMA decay trips | Conditional smoothing reset | `EnergySensor.cpp` |
 | Relay state visibility | Added relay status to logs | `StateManager.cpp` |
 | Blynk updates during trip | Added publishData to trip state | `StateManager.cpp` |
+| **Blynk push notifications** | **Enabled push in Console + test button** | **`NetworkManager.cpp`, `config.h`** |
+| **ZMPT101B instability** | **Enhanced RMS: 2000 samples, median filter** | **`EnergySensor.cpp`, `config.h`** |
+| **Power outage false trips** | **Power-present check in undervoltage** | **`SafetyManager.cpp`** |
+| **Power state notifications** | **Debounced state tracking + callbacks** | **`SafetyManager.h/cpp`, `StateManager.cpp`** |
+| **State management confusion** | **Corrected OFFLINE_MODE purpose** | **`StateManager.cpp`** |
 
 ---
 

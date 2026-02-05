@@ -33,10 +33,19 @@ private:
     uint8_t blinkR_, blinkG_, blinkB_;
     unsigned long lastBlinkTime_;
     bool blinkState_;
+    
+    // Power state tracking for notifications
+    bool powerWasPresent_;
+    unsigned long lastPowerChangeTime_;
+    
     bool checkOverVoltage(float voltage);
     bool checkUnderVoltage(float voltage);
     bool checkOverCurrent(float current);
     void setRelayState(bool energize);
+    
+public:
+    // Callback for power state changes (for notifications)
+    void (*powerStateCallback)(bool powerPresent) = nullptr;
 };
 
 #endif // SAFETY_MANAGER_H

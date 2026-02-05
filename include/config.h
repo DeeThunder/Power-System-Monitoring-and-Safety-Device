@@ -73,7 +73,7 @@
 #define VOLTAGE_MAX           249.0  // Over-voltage trip threshold
 #define VOLTAGE_MIN           200.0  // Under-voltage trip threshold
 #define VOLTAGE_HYSTERESIS    5.0    // Hysteresis to prevent relay chattering
-#define VOLTAGE_POWER_PRESENT_THRESHOLD 100.0  // Below this = power is off (don't trip)
+#define VOLTAGE_POWER_PRESENT_THRESHOLD 100.0  // Below this = power is off
 
 // Current Thresholds (in Amperes)
 #define CURRENT_MAX           30.0   // Over-current trip threshold
@@ -151,7 +151,7 @@
 // PERFORMANCE LOGGING CONFIGURATION
 // ============================================================================
 // Enable performance logging (uncomment to enable)
-#define ENABLE_PERFORMANCE_LOGGING
+// #define ENABLE_PERFORMANCE_LOGGING
 
 #ifdef ENABLE_PERFORMANCE_LOGGING
     #define PERF_ACCURACY_INTERVAL_MS  10000  // Log accuracy every 10 seconds
