@@ -27,6 +27,8 @@ You need to set up "Datastreams" to link the code to the dashboard widgets. Go t
 | **Power**        | `V2` | Double    | Watts (W) | 0   | 5000 | Total Power consumption             |
 | **System State** | `V3` | String    | None      | -   | -    | Current status (e.g., Normal, Trip) |
 | **Reset Button** | `V4` | Integer   | None      | 0   | 1    | Button to reset system after trip   |
+| **Manual Switch**| `V5` | Integer   | None      | 0   | 1    | Manual ON/OFF control switch        |
+| **Master Override** | `V6` | Integer | None    | 0   | 1    | ⚠️ Bypass safety protection (DANGER) |
 
 ## Step 3: Create the Web Dashboard (Optional)
 
@@ -49,6 +51,33 @@ You need to set up "Datastreams" to link the code to the dashboard widgets. Go t
     - **Value Display** -> Select Datastream: **System State (V3)**
     - **Button** -> Select Datastream: **Reset Button (V4)**
       - **Mode:** `Push` (Important!)
+    - **Switch** → Select Datastream: **Manual Switch (V5)**
+      - **Mode:** `Switch` (toggle ON/OFF)
+      - **Label:** "Manual Control"
+      - **Description:** "Turn load ON/OFF manually"
+    - **Switch** → Select Datastream: **Master Override (V6)**
+      - **Mode:** `Switch` (toggle ON/OFF)
+      - **Label:** "⚠️ MASTER OVERRIDE"
+      - **Description:** "DANGER: Bypasses ALL safety protection!"
+      - **Color:** Red (to indicate danger)
+      - **⚠️ WARNING**: Only use during maintenance/testing when conditions are known
+
+## ⚠️ Master Override Safety Warning
+
+The Master Override feature **BYPASSES ALL SAFETY PROTECTION** and allows the system to operate outside safe limits. This is **EXTREMELY DANGEROUS** and should only be used:
+
+- During maintenance when you need to test specific conditions
+- When you understand the electrical parameters and accept the risks
+- For temporary operation while troubleshooting
+
+**When Override is Active:**
+- ✅ System operates despite overvoltage/undervoltage/overcurrent
+- ✅ LED turns **YELLOW** (solid) to indicate override active
+- ✅ Periodic warnings sent every 30 minutes
+- ⚠️ **EXCEPTION**: Extreme overcurrent (>150% of max) will still trip for fire prevention
+- ⚠️ **RISK**: Equipment damage, fire hazard, electrical shock
+
+**Always disable override when not needed!**
 
 ## Step 5: Get Credentials
 

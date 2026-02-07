@@ -1,19 +1,26 @@
 /**
  * Smart Energy Monitoring and Safety System
  * 
+ * Author: DeeThunder Nexus (Peace_IoT)
+ * Website: deethundernexus.org
+ * Client: Samuel
+ * Date: Dec 1, 2025
+ * 
  * Main application file - coordinates all modules through StateManager
  * 
  * Hardware:
  * - ESP32 Dev Kit
  * - ZMPT101b Voltage Sensor (simulated with potentiometer)
  * - SCT-013 Current Sensor (simulated with potentiometer)
- * - 1-Channel Relay Module
+ * - 2-Channel Relay Module
  * - SSD1306 OLED Display (I2C)
  * - RGB LED (Common Cathode)
+ * - LED(Power indicator)
  * - Physical Boat Switch (Hardware power control, not used in software)
- * 
- * Author: Smart Energy System
- * Date: 2025
+ * - 2 3.7v Li-ion Batteries
+ * - 2 18650 Battery Holders
+ * - 1 TP4056 Battery Charger Module
+ * - 1 Boost Converter Module
  */
 
 #include <Arduino.h>
@@ -88,6 +95,11 @@ void setup() {
     // Register manual switch callback for Blynk switch
     networkManager.setManualSwitchCallback([](bool turnOn) {
         stateManager.handleManualSwitch(turnOn);
+    });
+    
+    // Register master override callback for Blynk switch
+    networkManager.setMasterOverrideCallback([](bool enable) {
+        stateManager.handleMasterOverride(enable);
     });
     
     stateManager.begin();

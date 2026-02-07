@@ -14,6 +14,9 @@ static void (*resetCallback)() = nullptr;
 // Callback for manual switch (set from main.cpp)
 static void (*manualSwitchCallback)(bool) = nullptr;
 
+// Callback for master override (set from main.cpp)
+static void (*masterOverrideCallback)(bool) = nullptr;
+
 // Blynk handler for reset button
 BLYNK_WRITE(VPIN_RESET_BUTTON) {
     int value = param.asInt();
@@ -42,6 +45,19 @@ BLYNK_WRITE(VPIN_MANUAL_SWITCH) {
     }
 }
 
+// Blynk handler for master override switch
+BLYNK_WRITE(VPIN_MASTER_OVERRIDE) {
+    int value = param.asInt();
+    
+    #ifdef APP_DEBUG
+        Serial.printf("[NetworkManager] Master Override received: %d\n", value);
+    #endif
+
+    if (masterOverrideCallback != nullptr) {
+        masterOverrideCallback(value == 1);
+    }
+}
+
 NetworkManager::NetworkManager() 
     : wifiConnected_(false), blynkConnected_(false), 
       lastWiFiAttempt_(0), lastBlynkUpdate_(0), lastStateString_("BOOT") {
@@ -66,6 +82,10 @@ void NetworkManager::setResetCallback(void (*callback)()) {
 
 void NetworkManager::setManualSwitchCallback(void (*callback)(bool)) {
     manualSwitchCallback = callback;
+}
+
+void NetworkManager::setMasterOverrideCallback(void (*callback)(bool)) {
+    masterOverrideCallback = callback;
 }
 
 void NetworkManager::update() {
@@ -134,7 +154,7 @@ bool NetworkManager::isBlynkConnected() const {
     return blynkConnected_;
 }
 
-void NetworkManager::publishData(float voltage, float current, float power) {
+void NetworkManager::publishData(float voltage, float current, float power, bool forceZero) {
     if (!blynkConnected_) return;
     
     // Throttle updates to avoid overwhelming Blynk
@@ -148,18 +168,25 @@ void NetworkManager::publishData(float voltage, float current, float power) {
         perfLogger.startBlynkTransmit();
     #endif
     
+    // During trip or manual OFF, force ONLY current and power to zero
+    // Keep voltage visible so users can see when it's safe to reset
+    float displayVoltage = voltage;  // Always show actual voltage
+    float displayCurrent = forceZero ? 0.0 : current;
+    float displayPower = forceZero ? 0.0 : power;
+    
     // Send data to virtual pins
-    Blynk.virtualWrite(VPIN_VOLTAGE, voltage);
-    Blynk.virtualWrite(VPIN_CURRENT, current);
-    Blynk.virtualWrite(VPIN_POWER, power);
+    Blynk.virtualWrite(VPIN_VOLTAGE, displayVoltage);
+    Blynk.virtualWrite(VPIN_CURRENT, displayCurrent);
+    Blynk.virtualWrite(VPIN_POWER, displayPower);
     
     #ifdef ENABLE_PERFORMANCE_LOGGING
         perfLogger.endBlynkTransmit();  // This also logs the latency data
     #endif
     
     #ifdef APP_DEBUG
-        Serial.printf("[NetworkManager] Published to Blynk: V=%.2f, I=%.2f, P=%.2f\n", 
-                      voltage, current, power);
+        Serial.printf("[NetworkManager] Published to Blynk: V=%.2f, I=%.2f, P=%.2f%s\n", 
+                      displayVoltage, displayCurrent, displayPower,
+                      forceZero ? " (I/P FORCED ZERO)" : "");
     #endif
 }
 

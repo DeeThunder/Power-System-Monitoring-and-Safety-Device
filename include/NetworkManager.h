@@ -35,6 +35,12 @@ public:
     void setManualSwitchCallback(void (*callback)(bool));
     
     /**
+     * @brief Set callback for master override switch (called from Blynk handler)
+     * @param callback Function to call when override switch is toggled
+     */
+    void setMasterOverrideCallback(void (*callback)(bool));
+    
+    /**
      * @brief Update network connections (non-blocking)
      * Must be called regularly from main loop
      */
@@ -57,8 +63,9 @@ public:
      * @param voltage Voltage reading
      * @param current Current reading
      * @param power Power reading
+     * @param forceZero If true, send zero values (for trip/manual OFF states)
      */
-    void publishData(float voltage, float current, float power);
+    void publishData(float voltage, float current, float power, bool forceZero = false);
     
     /**
      * @brief Send alert message to Blynk

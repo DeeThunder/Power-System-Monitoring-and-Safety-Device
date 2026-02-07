@@ -48,6 +48,11 @@ public:
     void showOfflineMode();
     
     /**
+     * @brief Display override active warning screen
+     */
+    void showOverrideActive();
+    
+    /**
      * @brief Clear the display
      */
     void clear();

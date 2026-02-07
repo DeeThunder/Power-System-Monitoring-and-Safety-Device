@@ -225,6 +225,44 @@ void DisplayManager::showOfflineMode() {
     #endif
 }
 
+void DisplayManager::showOverrideActive() {
+    if (!initialized_) return;
+    
+    display_->clearBuffer();
+    
+    // Invert screen for attention - fill background
+    display_->drawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    
+    // Set draw color to black (XOR mode for inverted text)
+    display_->setDrawColor(0);
+    
+    // Alert header
+    display_->setFont(u8g2_font_logisoso16_tr);
+    const char* alertText = "OVERRIDE!";
+    int w = display_->getStrWidth(alertText);
+    display_->drawStr((SCREEN_WIDTH - w) / 2, 25, alertText);
+    
+    // Warning
+    display_->setFont(u8g2_font_6x10_tr);
+    const char* warning = "SAFETY BYPASSED";
+    int w2 = display_->getStrWidth(warning);
+    display_->drawStr((SCREEN_WIDTH - w2) / 2, 40, warning);
+    
+    // Instructions
+    const char* instr = "Disable When Done";
+    int w3 = display_->getStrWidth(instr);
+    display_->drawStr((SCREEN_WIDTH - w3) / 2, 55, instr);
+    
+    // Reset draw color to normal
+    display_->setDrawColor(1);
+    
+    display_->sendBuffer();
+    
+    #ifdef APP_DEBUG
+        Serial.println("[DisplayManager] Showing override active warning");
+    #endif
+}
+
 void DisplayManager::clear() {
     if (!initialized_) return;
     display_->clearBuffer();

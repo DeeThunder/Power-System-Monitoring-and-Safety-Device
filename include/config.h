@@ -64,6 +64,7 @@
 #define VPIN_STATE            V3     // System state (string)
 #define VPIN_RESET_BUTTON     V4     // Reset button (write)
 #define VPIN_MANUAL_SWITCH    V5     // Manual ON/OFF switch (write)
+#define VPIN_MASTER_OVERRIDE  V6     // Master override switch (WEB ONLY)
 
 // ============================================================================
 // SAFETY THRESHOLDS
@@ -121,6 +122,14 @@
 #define INTERVAL_SAFETY       100    // Safety check interval (HIGH PRIORITY)
 #define INTERVAL_WIFI_RETRY   30000  // WiFi reconnection attempt interval (30 seconds)
 #define INTERVAL_BLYNK_RETRY  5000   // Minimum Blynk retry interval (5 seconds, with exponential backoff)
+
+// Safety Override Configuration
+#define OVERRIDE_WARNING_INTERVAL  1800000  // 30 minutes in milliseconds
+
+// State Persistence Keys (ESP32 Preferences)
+#define PREF_NAMESPACE        "system_state"
+#define PREF_OVERRIDE_ACTIVE  "override"
+#define PREF_MANUAL_OFF       "manual_off"
 
 // WiFi Connection Timeout
 #define WIFI_CONNECT_TIMEOUT  20000  // WiFi connection timeout (20 seconds)

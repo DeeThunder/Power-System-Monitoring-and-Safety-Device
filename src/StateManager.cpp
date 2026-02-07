@@ -14,16 +14,78 @@ StateManager::StateManager(EnergySensor& sensor, DisplayManager& display,
       lastSafetyCheck_(0),
       blynkWasConnected_(false), powerOutageNotified_(false),
       faultNotified_(false), powerWasPresent_(true),
-      lastNotificationTime_(0) {
+      lastNotificationTime_(0), isManuallyOff_(false),
+      isOverrideActive_(false), lastOverrideWarning_(0) {
 }
 
 // Minimum time between notifications to avoid Blynk rate limits
 const unsigned long NOTIFICATION_INTERVAL_MS = 1000;
 
+void StateManager::loadSavedStates() {
+    isOverrideActive_ = preferences_.getBool(PREF_OVERRIDE_ACTIVE, false);
+    isManuallyOff_ = preferences_.getBool(PREF_MANUAL_OFF, false);
+    
+    #ifdef APP_DEBUG
+        Serial.printf("[StateManager] Loaded states: Override=%d, ManualOff=%d\n", 
+                      isOverrideActive_, isManuallyOff_);
+    #endif
+}
+
+void StateManager::saveOverrideState(bool active) {
+    preferences_.putBool(PREF_OVERRIDE_ACTIVE, active);
+    
+    #ifdef APP_DEBUG
+        Serial.printf("[StateManager] Saved override state: %d\n", active);
+    #endif
+}
+
+void StateManager::saveManualSwitchState(bool manualOff) {
+    preferences_.putBool(PREF_MANUAL_OFF, manualOff);
+    
+    #ifdef APP_DEBUG
+        Serial.printf("[StateManager] Saved manual switch state: %d\n", manualOff);
+    #endif
+}
+
 void StateManager::begin() {
+    // Initialize preferences
+    preferences_.begin(PREF_NAMESPACE, false);  // false = read/write mode
+    
+    #ifdef APP_DEBUG
+        Serial.println("[StateManager] Preferences initialized");
+    #endif
+    
+    // Load saved states from non-volatile storage
+    loadSavedStates();
+    
+    // Set initial state
     setState(STATE_BOOT);
     
-    // Set up power state change callback for notifications
+    // Restore override state if it was active before power loss
+    if (isOverrideActive_) {
+        #ifdef APP_DEBUG
+            Serial.println("[StateManager] Restoring override state from memory");
+        #endif
+        
+        // Re-enable override (without notification during boot)
+        safety_.clearFault();
+        safety_.resetRelay();
+        safety_.setRGBStatus(RGB_YELLOW);
+        // Note: V5 sync will happen after network connects
+    }
+    
+    // Restore manual OFF state if it was set before power loss
+    if (isManuallyOff_) {
+        #ifdef APP_DEBUG
+            Serial.println("[StateManager] Restoring manual OFF state from memory");
+        #endif
+        
+        safety_.tripRelay();
+        safety_.setRGBStatus(RGB_ORANGE);
+        safety_.setBlinking(true);
+        // Note: V5 sync will happen after network connects
+    }
+    
     // Set up power state change callback for notifications
     safety_.powerStateCallback = [this](bool powerPresent) {
         unsigned long now = millis();
@@ -200,6 +262,10 @@ void StateManager::handleManualSwitch(bool turnOn) {
             return;
         }
         
+        // Clear manual OFF flag
+        isManuallyOff_ = false;
+        saveManualSwitchState(false);  // Save to EEPROM
+        
         // Clear any previous faults
         safety_.clearFault();
         safety_.resetRelay();  // Turn relay ON
@@ -228,6 +294,9 @@ void StateManager::handleManualSwitch(bool turnOn) {
         
     } else {
         // User wants to turn system OFF manually
+        isManuallyOff_ = true;  // Set manual OFF flag
+        saveManualSwitchState(true);  // Save to EEPROM
+        
         safety_.tripRelay();  // Turn relay OFF
         
         // Enable blinking orange LED to indicate manual OFF
@@ -240,6 +309,95 @@ void StateManager::handleManualSwitch(bool turnOn) {
         #ifdef APP_DEBUG
             Serial.println("[StateManager] Manual OFF - relay de-energized, blinking orange");
         #endif
+    }
+}
+
+void StateManager::handleMasterOverride(bool enable) {
+    #ifdef APP_DEBUG
+        Serial.printf("[StateManager] Master Override: %s\n", enable ? "ENABLED" : "DISABLED");
+    #endif
+    
+    if (enable) {
+        // ENABLE OVERRIDE
+        isOverrideActive_ = true;
+        saveOverrideState(true);  // Save to EEPROM
+        lastOverrideWarning_ = millis();
+        
+        // Clear manual OFF flag (override takes precedence)
+        isManuallyOff_ = false;
+        
+        // Automatically turn ON the load
+        safety_.clearFault();
+        safety_.resetRelay();  // Energize relay
+        safety_.setRGBStatus(RGB_YELLOW);  // Yellow = Override active
+
+        // NOTE: Switch state will be updated by onStateEnter() during state transition
+        
+        // Transition to appropriate state (exit TRIP_PROTECTION if we were tripped)
+        if (network_.isWiFiConnected()) {
+            setState(STATE_NORMAL);
+        } else {
+            setState(STATE_OFFLINE_MODE);
+        }
+        
+        // Send immediate hazard warning
+        network_.sendAlert("⚠️ MASTER OVERRIDE ENABLED - Safety protection BYPASSED! Load automatically turned ON. System will operate outside safe limits. DISABLE when not needed!");
+        
+        // Update state display
+        network_.updateState("SAFETY BYPASSED");
+        
+        // Show override status on OLED display
+        display_.showOverrideActive();
+        
+        
+        #ifdef APP_DEBUG
+            Serial.println("[StateManager] ⚠️ SAFETY PROTECTION BYPASSED - Load ON");
+        #endif
+        
+    } else {
+        // DISABLE OVERRIDE
+        isOverrideActive_ = false;
+        saveOverrideState(false);  // Save to EEPROM
+        
+        network_.sendAlert("✅ Master Override DISABLED - Safety protection restored");
+        
+        // Check current safety conditions
+        float voltage = sensor_.getVoltage();
+        float current = sensor_.getCurrent();
+        
+        // If conditions are unsafe, trip immediately
+        if (!safety_.checkSafety(voltage, current)) {
+            safety_.tripRelay();
+            
+            // Sync manual switch to OFF
+            if (network_.isBlynkConnected()) {
+                network_.updateSwitchState(false);
+            }
+            
+            setState(STATE_TRIP_PROTECTION);
+            
+            #ifdef APP_DEBUG
+                Serial.println("[StateManager] Override disabled - conditions unsafe, tripping");
+            #endif
+        } else {
+            // Conditions are safe - restore normal LED color based on current state
+            if (currentState_ == STATE_NORMAL) {
+                safety_.setRGBStatus(RGB_GREEN);
+            } else if (currentState_ == STATE_OFFLINE_MODE) {
+                safety_.setRGBStatus(RGB_BLUE);
+            }
+            
+            // Update state display to show normal operation
+            if (network_.isWiFiConnected()) {
+                network_.updateState("NORMAL");
+            } else {
+                network_.updateState("OFFLINE");
+            }
+            
+            #ifdef APP_DEBUG
+                Serial.println("[StateManager] Safety protection restored - conditions safe");
+            #endif
+        }
     }
 }
 
@@ -282,11 +440,50 @@ void StateManager::updateStateNormal() {
         float voltage = sensor_.getVoltage();
         float current = sensor_.getCurrent();
         
-        if (!safety_.checkSafety(voltage, current)) {
-            // FAULT DETECTED - TRIP IMMEDIATELY
-            safety_.tripRelay();
-            setState(STATE_TRIP_PROTECTION);
-            return;  // Exit immediately
+        // Check if override is active
+        if (!isOverrideActive_) {
+            // Normal safety check
+            if (!safety_.checkSafety(voltage, current)) {
+                // FAULT DETECTED - TRIP IMMEDIATELY
+                safety_.tripRelay();
+                
+                // Sync manual switch to OFF in Blynk
+                if (network_.isBlynkConnected()) {
+                    network_.updateSwitchState(false);
+                }
+                
+                setState(STATE_TRIP_PROTECTION);
+                return;  // Exit immediately
+            }
+        } else {
+            // Override active - only check for extreme conditions
+            // Still trip on severe overcurrent to prevent fire hazard
+            if (current > CURRENT_MAX * 1.5) {  // 150% of max current
+                network_.sendAlert("🔥 CRITICAL: Extreme overcurrent detected! Tripping despite override.");
+                safety_.tripRelay();
+                isOverrideActive_ = false;  // Auto-disable override
+                saveOverrideState(false);  // Save to EEPROM
+                
+                // Sync manual switch to OFF in Blynk
+                if (network_.isBlynkConnected()) {
+                    network_.updateSwitchState(false);
+                }
+                
+                setState(STATE_TRIP_PROTECTION);
+                return;
+            }
+        }
+    }
+    
+    // Periodic override warning
+    if (isOverrideActive_) {
+        if (now - lastOverrideWarning_ >= OVERRIDE_WARNING_INTERVAL) {
+            lastOverrideWarning_ = now;
+            network_.sendAlert("⚠️ REMINDER: Master Override is ACTIVE - Safety protection bypassed!");
+            
+            #ifdef APP_DEBUG
+                Serial.println("[StateManager] Override warning sent (30 min periodic)");
+            #endif
         }
     }
     
@@ -310,7 +507,7 @@ void StateManager::updateStateNormal() {
     // Publish to Blynk
     if (network_.isBlynkConnected()) {
         network_.publishData(sensor_.getVoltage(), sensor_.getCurrent(), 
-                            sensor_.getPower());
+                            sensor_.getPower(), isManuallyOff_);
     }
     
     // Performance logging - log accuracy data periodically
@@ -358,8 +555,11 @@ void StateManager::updateStateTripProtection() {
     
     // Publish to Blynk (so user knows if it's safe to reset)
     if (network_.isBlynkConnected()) {
+        // CRITICAL FIX: Ensure switch state stays synced during trip
+        network_.updateSwitchState(false);  // Keep switch OFF while tripped
+        
         network_.publishData(sensor_.getVoltage(), sensor_.getCurrent(), 
-                            sensor_.getPower());
+                            sensor_.getPower(), true);  // Force zero readings
     }
     
     // Note: Reset is handled by handleReset() called from main loop button handler
@@ -384,11 +584,50 @@ void StateManager::updateStateOfflineMode() {
         float voltage = sensor_.getVoltage();
         float current = sensor_.getCurrent();
         
-        if (!safety_.checkSafety(voltage, current)) {
-            // FAULT DETECTED - TRIP IMMEDIATELY
-            safety_.tripRelay();
-            setState(STATE_TRIP_PROTECTION);
-            return;
+        // Check if override is active
+        if (!isOverrideActive_) {
+            // Normal safety check
+            if (!safety_.checkSafety(voltage, current)) {
+                // FAULT DETECTED - TRIP IMMEDIATELY
+                safety_.tripRelay();
+                
+                // Sync manual switch to OFF in Blynk (when reconnects)
+                if (network_.isBlynkConnected()) {
+                    network_.updateSwitchState(false);
+                }
+                
+                setState(STATE_TRIP_PROTECTION);
+                return;
+            }
+        } else {
+            // Override active - only check for extreme conditions
+            // Still trip on severe overcurrent to prevent fire hazard
+            if (current > CURRENT_MAX * 1.5) {  // 150% of max current
+                // Note: Can't send alert when offline, but still trip
+                safety_.tripRelay();
+                isOverrideActive_ = false;  // Auto-disable override
+                saveOverrideState(false);  // Save to EEPROM
+                
+                // Sync manual switch to OFF in Blynk (when reconnects)
+                if (network_.isBlynkConnected()) {
+                    network_.updateSwitchState(false);
+                }
+                
+                setState(STATE_TRIP_PROTECTION);
+                return;
+            }
+        }
+    }
+    
+    // Periodic override warning (only if Blynk connected)
+    if (isOverrideActive_ && network_.isBlynkConnected()) {
+        if (now - lastOverrideWarning_ >= OVERRIDE_WARNING_INTERVAL) {
+            lastOverrideWarning_ = now;
+            network_.sendAlert("⚠️ REMINDER: Master Override is ACTIVE - Safety protection bypassed!");
+            
+            #ifdef APP_DEBUG
+                Serial.println("[StateManager] Override warning sent (30 min periodic)");
+            #endif
         }
     }
     
@@ -420,13 +659,22 @@ void StateManager::onStateEnter() {
             break;
             
         case STATE_NORMAL:
-            safety_.setRGBStatus(RGB_GREEN);  // Green = Normal operation
+            // Check if override is active - maintain yellow LED
+            if (isOverrideActive_) {
+                safety_.setRGBStatus(RGB_YELLOW);  // Yellow = Override active
+                network_.updateState("OVERRIDE ACTIVE - SAFETY BYPASSED");
+                #ifdef APP_DEBUG
+                    Serial.println("[StateManager] NORMAL (Override): RGB=Yellow, Relay=ON, Switch=ON");
+                #endif
+            } else {
+                safety_.setRGBStatus(RGB_GREEN);  // Green = Normal operation
+                network_.updateState("NORMAL");
+                #ifdef APP_DEBUG
+                    Serial.println("[StateManager] NORMAL: RGB=Green, Relay=ON, Switch=ON");
+                #endif
+            }
             safety_.resetRelay();  // Turn relay ON (safe to operate)
-            network_.updateState("NORMAL");
             network_.updateSwitchState(true);  // Sync switch to ON
-            #ifdef APP_DEBUG
-                Serial.println("[StateManager] NORMAL: RGB=Green, Relay=ON, Switch=ON");
-            #endif
             break;
             
         case STATE_TRIP_PROTECTION:
@@ -455,16 +703,24 @@ void StateManager::onStateEnter() {
             break;
             
         case STATE_OFFLINE_MODE:
-            safety_.setRGBStatus(RGB_BLUE);  // Blue = No WiFi (offline)
-            // Only energize relay if not tripped
-            if (!safety_.isTripped()) {
-                safety_.resetRelay();  // Turn relay ON (can operate offline)
+            // Check if override is active - maintain yellow LED
+            if (isOverrideActive_) {
+                safety_.setRGBStatus(RGB_YELLOW);  // Yellow = Override active
+                #ifdef APP_DEBUG
+                    Serial.println("[StateManager] OFFLINE (Override): RGB=Yellow, Relay=ON");
+                #endif
+            } else {
+                safety_.setRGBStatus(RGB_BLUE);  // Blue = No WiFi (offline)
                 #ifdef APP_DEBUG
                     Serial.println("[StateManager] OFFLINE: RGB=Blue, Relay=ON (not tripped)");
                 #endif
+            }
+            // Only energize relay if not tripped
+            if (!safety_.isTripped()) {
+                safety_.resetRelay();  // Turn relay ON (can operate offline)
             } else {
                 #ifdef APP_DEBUG
-                    Serial.println("[StateManager] OFFLINE: RGB=Blue, Relay=OFF (tripped)");
+                    Serial.println("[StateManager] OFFLINE: Relay=OFF (tripped)");
                 #endif
             }
             break;

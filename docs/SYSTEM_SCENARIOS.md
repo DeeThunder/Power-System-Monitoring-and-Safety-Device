@@ -25,6 +25,10 @@ This document covers **all possible scenarios** with the updated system behavior
 | 13 | WiFi Restored | NORMAL | Current | Green | None |
 | 14 | Manual OFF + Power Outage | NORMAL | OFF | Orange Blink | Both notifications |
 | 15 | Fault + WiFi Lost | TRIP | OFF | Red | Fault notification only |
+| 16 | Master Override ENABLED | NORMAL/OFFLINE | ON | Yellow | "MASTER OVERRIDE ENABLED" |
+| 17 | Master Override DISABLED (Safe) | NORMAL/OFFLINE | ON | Green/Blue | "Override DISABLED" |
+| 18 | Master Override DISABLED (Unsafe) | TRIP | OFF | Red | "Override DISABLED" + Fault |
+| 19 | Override + Extreme Overcurrent | TRIP | OFF | Red | "CRITICAL: Extreme overcurrent" |
 
 ---
 
@@ -617,6 +621,204 @@ T+15s: User presses RESET
 
 ---
 
+### Scenario 16: Master Override ENABLED from TRIP State
+
+**Initial Conditions**:
+- System in TRIP_PROTECTION (e.g., overvoltage fault)
+- Voltage still unsafe (255V)
+- User enables Master Override via Blynk
+
+**Timeline**:
+```
+T+0s:  System in TRIP_PROTECTION
+       Voltage: 255V (unsafe)
+       Relay: OFF
+       LED: Red
+       State: TRIP_PROTECTION
+
+T+1s:  User enables Master Override (V5 = 1)
+       handleMasterOverride(true) called
+       
+T+1s:  Override activated:
+       isOverrideActive_ = true
+       Safety checks BYPASSED
+       Relay: OFF → ON (energize)
+       LED: Red → Yellow
+       State: TRIP_PROTECTION → NORMAL (or OFFLINE_MODE)
+       Blynk switch: Synced to ON
+       Notification: "⚠️ MASTER OVERRIDE ENABLED - Safety protection BYPASSED!"
+       State display: "SAFETY BYPASSED"
+
+T+2s:  System operates with override:
+       Voltage: 255V (still unsafe, but allowed)
+       Current: Reading actual load
+       Relay: ON
+       LED: Yellow (solid)
+       Safety checks: BYPASSED (except extreme overcurrent)
+       
+T+30min: Periodic warning sent:
+       Notification: "⚠️ REMINDER: Master Override is ACTIVE"
+```
+
+**Result**:
+- ✅ State: NORMAL (or OFFLINE_MODE if no WiFi)
+- ✅ Relay: ON (energized despite unsafe voltage)
+- ✅ LED: Yellow (solid) - indicates override active
+- ✅ Blynk switch: ON
+- ✅ Safety protection: BYPASSED
+- ✅ Periodic warnings: Every 30 minutes
+- ⚠️ **WARNING**: System operates outside safe limits!
+
+---
+
+### Scenario 17: Master Override DISABLED (Safe Conditions)
+
+**Initial Conditions**:
+- Master Override active (yellow LED)
+- Voltage: 220V (safe)
+- Current: 5A (safe)
+- User disables override
+
+**Timeline**:
+```
+T+0s:  Override active:
+       Voltage: 220V ✓
+       Current: 5A ✓
+       Relay: ON
+       LED: Yellow
+       State: NORMAL
+
+T+1s:  User disables Master Override (V5 = 0)
+       handleMasterOverride(false) called
+       
+T+1s:  Safety check performed:
+       checkSafety(220V, 5A) = TRUE
+       Conditions are SAFE
+       
+T+1s:  Override deactivated:
+       isOverrideActive_ = false
+       Relay: ON (stays ON - conditions safe)
+       LED: Yellow → Green (normal operation)
+       State: NORMAL (no change)
+       Blynk switch: ON (no change)
+       Notification: "✅ Master Override DISABLED - Safety protection restored"
+       State display: "NORMAL"
+
+T+2s:  Normal operation resumes:
+       Safety checks: ACTIVE
+       All protection enabled
+       LED: Green
+```
+
+**Result**:
+- ✅ State: NORMAL
+- ✅ Relay: ON (conditions safe)
+- ✅ LED: Green (normal operation restored)
+- ✅ Blynk switch: ON
+- ✅ Safety protection: RESTORED
+- ✅ No trip (conditions were safe)
+
+---
+
+### Scenario 18: Master Override DISABLED (Unsafe Conditions)
+
+**Initial Conditions**:
+- Master Override active (yellow LED)
+- Voltage: 255V (unsafe - overvoltage)
+- Current: 10A
+- User disables override
+
+**Timeline**:
+```
+T+0s:  Override active:
+       Voltage: 255V (unsafe)
+       Current: 10A
+       Relay: ON
+       LED: Yellow
+       State: NORMAL
+
+T+1s:  User disables Master Override (V5 = 0)
+       handleMasterOverride(false) called
+       
+T+1s:  Safety check performed:
+       checkSafety(255V, 10A) = FALSE
+       Overvoltage detected!
+       
+T+1s:  IMMEDIATE TRIP:
+       isOverrideActive_ = false
+       Relay: ON → OFF (trip immediately)
+       LED: Yellow → Red
+       State: NORMAL → TRIP_PROTECTION
+       Blynk switch: ON → OFF (synced)
+       Notification 1: "✅ Master Override DISABLED - Safety protection restored"
+       Notification 2: "OVER VOLTAGE" (fault detected)
+
+T+2s:  System in fault state:
+       Relay: OFF
+       LED: Red
+       State: TRIP_PROTECTION
+       Requires manual reset when safe
+```
+
+**Result**:
+- ✅ State: TRIP_PROTECTION
+- ✅ Relay: OFF (tripped immediately)
+- ✅ LED: Red (fault state)
+- ✅ Blynk switch: OFF (synced)
+- ✅ Safety protection: RESTORED
+- ✅ Fault detected and handled correctly
+- ⚠️ System will not reset until voltage is safe
+
+---
+
+### Scenario 19: Override + Extreme Overcurrent (Auto-Disable)
+
+**Initial Conditions**:
+- Master Override active (yellow LED)
+- Voltage: 220V
+- Current suddenly spikes to 50A (extreme)
+
+**Timeline**:
+```
+T+0s:  Override active:
+       Voltage: 220V
+       Current: 5A
+       Relay: ON
+       LED: Yellow
+       State: NORMAL
+
+T+1s:  Extreme overcurrent occurs:
+       Current: 5A → 50A (fire hazard!)
+       Safety check detects: 50A > 45A (150% of 30A max)
+       
+T+1s:  CRITICAL AUTO-TRIP:
+       Override AUTO-DISABLED (safety override)
+       isOverrideActive_ = false
+       Relay: ON → OFF (trip immediately)
+       LED: Yellow → Red
+       State: NORMAL → TRIP_PROTECTION
+       Blynk switch: ON → OFF (synced)
+       Notification: "🔥 CRITICAL: Extreme overcurrent detected! Tripping despite override."
+
+T+2s:  System in fault state:
+       Relay: OFF
+       LED: Red
+       State: TRIP_PROTECTION
+       Override: DISABLED (auto-disabled)
+       Requires manual intervention
+```
+
+**Result**:
+- ✅ State: TRIP_PROTECTION
+- ✅ Relay: OFF (tripped for safety)
+- ✅ LED: Red (critical fault)
+- ✅ Override: AUTO-DISABLED (safety feature)
+- ✅ Blynk switch: OFF (synced)
+- ⚠️ **CRITICAL**: Override cannot bypass extreme overcurrent (fire prevention)
+- ⚠️ Threshold: 150% of CURRENT_MAX (45A for 30A max)
+
+---
+
 ## State Priority
 
 When multiple conditions occur simultaneously:
@@ -664,6 +866,7 @@ When multiple conditions occur simultaneously:
 | Orange | Yes | NORMAL (manual OFF) | Load manually switched OFF |
 | Red | No | TRIP_PROTECTION | Fault condition |
 | Blue | No | OFFLINE_MODE | No internet, local operation |
+| Yellow | No | NORMAL/OFFLINE (override) | Master Override ACTIVE - Safety BYPASSED |
 
 ---
 

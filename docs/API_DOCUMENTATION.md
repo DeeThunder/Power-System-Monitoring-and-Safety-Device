@@ -398,6 +398,46 @@ void handleReset()
 - **Precondition**: Must be in TRIP_PROTECTION state
 - **Safety Check**: Verifies conditions are safe before reset
 
+```cpp
+void handleManualSwitch(bool turnOn)
+```
+- **Description**: Handle manual ON/OFF control via Blynk switch (V5)
+- **Parameters**:
+  - `turnOn`: `true` to turn load ON, `false` to turn OFF
+- **Behavior**:
+  - **Turn ON**: Performs safety check first. If safe, energizes relay and sets LED to green. If unsafe, denies request and syncs switch back to OFF.
+  - **Turn OFF**: Immediately de-energizes relay, sets LED to blinking orange, and sends notification.
+- **State Persistence**: Manual OFF state is saved to EEPROM and restored after power loss
+- **Visual Indicator**: Blinking orange LED indicates manual OFF state
+- **Safety**: Cannot turn ON if conditions are unsafe
+
+```cpp
+void handleMasterOverride(bool enable)
+```
+- **Description**: Enable/disable Master Override mode to bypass safety protection
+- **Parameters**:
+  - `enable`: `true` to enable override, `false` to disable
+- **⚠️ WARNING**: This bypasses ALL safety checks except extreme overcurrent (150% of max)
+- **Behavior**:
+  - **Enable**: 
+    - Bypasses safety checks
+    - Energizes relay immediately
+    - Sets LED to yellow (solid)
+    - Transitions from TRIP state to NORMAL/OFFLINE
+    - Syncs Blynk switch to ON
+    - Sends hazard warning notification
+    - Periodic reminders every 30 minutes
+  - **Disable**:
+    - Restores safety protection
+    - Checks current conditions
+    - If unsafe: Trips immediately and transitions to TRIP_PROTECTION
+    - If safe: Maintains relay ON, sets LED to green/blue
+- **State Persistence**: Override state is saved to EEPROM and restored after power loss
+- **Visual Indicator**: Yellow LED (solid) indicates override active
+- **Extreme Overcurrent Protection**: Override auto-disables if current exceeds 150% of CURRENT_MAX (fire prevention)
+- **Use Case**: Temporary operation during maintenance or testing when conditions are known to be outside normal limits
+- **Virtual Pin**: V5 (Blynk switch)
+
 #### State Update Methods (Private)
 
 ```cpp

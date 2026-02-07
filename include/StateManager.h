@@ -2,6 +2,7 @@
 #define STATE_MANAGER_H
 
 #include <Arduino.h>
+#include <Preferences.h>
 #include "EnergySensor.h"
 #include "DisplayManager.h"
 #include "SafetyManager.h"
@@ -67,6 +68,12 @@ public:
      * @param turnOn True to turn system ON, false to turn OFF
      */
     void handleManualSwitch(bool turnOn);
+    
+    /**
+     * @brief Handle master override switch toggle from Blynk
+     * @param enable True to enable override, false to disable
+     */
+    void handleMasterOverride(bool enable);
 
 private:
     EnergySensor& sensor_;
@@ -89,6 +96,29 @@ private:
     bool faultNotified_;
     bool powerWasPresent_;
     unsigned long lastNotificationTime_;
+    bool isManuallyOff_;  // Track manual OFF state via Blynk switch
+    
+    // Master override tracking
+    bool isOverrideActive_;              // Override switch state
+    unsigned long lastOverrideWarning_;  // Last warning timestamp
+    
+    // State persistence
+    Preferences preferences_;
+    
+    /**
+     * @brief Load saved states from non-volatile storage
+     */
+    void loadSavedStates();
+    
+    /**
+     * @brief Save override state to non-volatile storage
+     */
+    void saveOverrideState(bool active);
+    
+    /**
+     * @brief Save manual switch state to non-volatile storage
+     */
+    void saveManualSwitchState(bool manualOff);
     
     /**
      * @brief Execute STATE_BOOT logic
