@@ -9,6 +9,52 @@
  * 4. Copy the deployment URL to your ESP32 config.h
  */
 
+/**
+ * doGet handles data retrieval from Python scripts
+ * URL: [DEPLOYMENT_URL]?sheet=SheetName
+ */
+function doGet(e) {
+  try {
+    var sheetName = e.parameter.sheet;
+    if (!sheetName) {
+      return ContentService.createTextOutput(
+        JSON.stringify({
+          status: "error",
+          message: "Missing sheet parameter",
+        }),
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(sheetName);
+
+    if (!sheet) {
+      return ContentService.createTextOutput(
+        JSON.stringify({
+          status: "error",
+          message: "Sheet not found: " + sheetName,
+        }),
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var data = sheet.getDataRange().getValues();
+
+    return ContentService.createTextOutput(
+      JSON.stringify({
+        status: "success",
+        data: data,
+      }),
+    ).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(
+      JSON.stringify({
+        status: "error",
+        message: error.toString(),
+      }),
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
 function doPost(e) {
   try {
     // Parse incoming JSON data from ESP32

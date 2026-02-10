@@ -62,6 +62,15 @@ def main():
     results = {}
     
     # Run individual analyses
+    print_header("DATA SYNCHRONIZATION")
+    sync_script = TOOLS_DIR / "data_sync.py"
+    if sync_script.exists():
+        print("Synchronizing cloud and local data...")
+        run_analysis(str(sync_script), "Data Synchronization (Cloud + USB)")
+    else:
+        print("[INFO] data_sync.py not found, skipping cloud sync.")
+
+    # Run individual analyses
     analyses = [
         ("latency_analysis.py", "Transmission Latency Analysis"),
         ("accuracy_analysis.py", "Measurement Accuracy Analysis"),

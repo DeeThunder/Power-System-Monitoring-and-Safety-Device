@@ -289,7 +289,7 @@ To switch from simulation (potentiometers) to real sensors:
 - **[Technical Challenges Report](docs/TECHNICAL_CHALLENGES.md)** - Detailed analysis of all challenges faced and solutions implemented
 - **[Chapter 3: Methodology](docs/CHAPTER3_METHODOLOGY.md)** - Academic methodology documentation with diagrams and algorithms
 - **[Blynk Setup Guide](BLYNK_SETUP.md)** - Step-by-step IoT platform configuration
-- **[Cloud Logging Guide](docs/google_apps_script.js)** - Google Sheets logging setup and battery monitoring
+- **[Hybrid Analysis Guide](docs/HYBRID_ANALYSIS_GUIDE.md)** - Guide for combining cloud and USB data for unified analysis
 - **[Wokwi Simulation Guide](WOKWI_SIMULATION.md)** - Browser-based testing without hardware
 
 ### Quick Links

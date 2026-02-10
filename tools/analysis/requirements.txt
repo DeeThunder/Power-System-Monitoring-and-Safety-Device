@@ -12,6 +12,9 @@ scikit-learn>=1.3.0
 matplotlib>=3.7.0
 seaborn>=0.12.0
 
+# Network/Cloud Sync
+requests>=2.31.0
+
 # Report generation
 jinja2>=3.1.0
 
