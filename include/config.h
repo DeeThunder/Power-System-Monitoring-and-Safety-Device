@@ -1,9 +1,15 @@
 // ============================================================================
+// SECRETS - MUST BE INCLUDED FIRST
+// ============================================================================
+// Copy secrets.h.example to secrets.h and fill in your credentials
+#include "secrets.h"
+
+// ============================================================================
 // BLYNK CONFIGURATION (Must be defined BEFORE including Blynk library)
 // ============================================================================
-#define BLYNK_TEMPLATE_ID "TMPL2cEqaLW7h"
-#define BLYNK_TEMPLATE_NAME "Energy Monitoring and Safety Meter"
-#define BLYNK_AUTH_TOKEN "JeQK-J5qRKHFBCm94mNhXztmnpja1udh"
+#define BLYNK_TEMPLATE_ID SECRET_BLYNK_TEMPLATE_ID
+#define BLYNK_TEMPLATE_NAME SECRET_BLYNK_TEMPLATE_NAME
+#define BLYNK_AUTH_TOKEN SECRET_BLYNK_AUTH_TOKEN
 
 #ifndef CONFIG_H
 #define CONFIG_H
@@ -51,9 +57,7 @@
 // WIFI CONFIGURATION
 // ============================================================================
 
-// WiFi Credentials
-
-#include "secret.h"
+// WiFi Credentials (defined in secrets.h)
 #define WIFI_SSID             SECRET_WIFI_SSID
 #define WIFI_PASSWORD         SECRET_WIFI_PASSWORD
 
@@ -162,5 +166,15 @@
 #ifdef ENABLE_PERFORMANCE_LOGGING
     #define PERF_ACCURACY_INTERVAL_MS  10000  // Log accuracy every 10 seconds
 #endif
+
+// ============================================================================
+// CLOUD LOGGING CONFIGURATION
+// ============================================================================
+// Google Apps Script Web App URL (defined in secrets.h)
+#define GOOGLE_SHEETS_URL SECRET_GOOGLE_SHEETS_URL
+// Cloud logging settings
+#define CLOUD_LOG_HEARTBEAT_INTERVAL  300000  // 5 minutes in milliseconds
+// Enable/disable cloud logging (comment out to disable)
+#define ENABLE_CLOUD_LOGGING
 
 #endif // CONFIG_H

@@ -18,7 +18,7 @@ void SafetyManager::begin() {
     pinMode(PIN_RELAY, OUTPUT);
     
     // CRITICAL: Start with relay OFF during boot - will energize when entering NORMAL state
-    setRelayState(true);  // De-energize relay (NO pin open, no power flow)
+    setRelayState(false);  // De-energize relay (NO pin open, no power flow)
     relayTripped_ = false;  // Not tripped, just starting OFF
     
     // Configure RGB LED pins

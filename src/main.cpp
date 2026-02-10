@@ -35,6 +35,10 @@
     #include "PerformanceLogger.h"
 #endif
 
+#ifdef ENABLE_CLOUD_LOGGING
+    #include "CloudLogger.h"
+#endif
+
 // ============================================================================
 // GLOBAL OBJECTS
 // ============================================================================
@@ -47,6 +51,10 @@ StateManager stateManager(energySensor, displayManager, networkManager, safetyMa
 
 #ifdef ENABLE_PERFORMANCE_LOGGING
     PerformanceLogger perfLogger;
+#endif
+
+#ifdef ENABLE_CLOUD_LOGGING
+    CloudLogger cloudLogger;
 #endif
 
 // ============================================================================
@@ -109,6 +117,10 @@ void setup() {
         Serial.println("[Main] Performance logging ENABLED");
         Serial.println("[Main] Run: python tools/performance_logger.py COM3 115200");
     #endif
+
+    #ifdef ENABLE_CLOUD_LOGGING
+        cloudLogger.begin();
+    #endif
     
     #ifdef APP_DEBUG
         Serial.println("Safety Thresholds:");
@@ -126,4 +138,8 @@ void loop() {
     stateManager.update();
     // Small yield to prevent watchdog timeout
     yield();
+
+    #ifdef ENABLE_CLOUD_LOGGING
+        cloudLogger.update();
+    #endif
 }

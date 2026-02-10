@@ -1,4 +1,10 @@
 #include "PerformanceLogger.h"
+#include "config.h"  // CRITICAL: Must include to get ENABLE_CLOUD_LOGGING flag
+
+#ifdef ENABLE_CLOUD_LOGGING
+    #include "CloudLogger.h"
+    extern CloudLogger cloudLogger;
+#endif
 
 PerformanceLogger::PerformanceLogger()
     : sensorReadStart_(0), sensorReadDuration_(0),
@@ -49,6 +55,11 @@ void PerformanceLogger::logLatency() {
                   String(totalLatencyMs);
     
     printCSVLine("LATENCY", data);
+
+     #ifdef ENABLE_CLOUD_LOGGING
+        cloudLogger.logLatency(millis(), sensorReadDuration_, 
+                              blynkTransmitDuration_, totalLatencyMs);
+    #endif
 }
 
 // ============================================================================
@@ -62,6 +73,10 @@ void PerformanceLogger::logAccuracy(float voltage, float current, float power) {
                   String(power, 2);
     
     printCSVLine("ACCURACY", data);
+
+    #ifdef ENABLE_CLOUD_LOGGING
+        cloudLogger.logAccuracy(millis(), voltage, current, power);
+    #endif
 }
 
 // ============================================================================
@@ -95,6 +110,11 @@ void PerformanceLogger::logTripResponse() {
                   String(totalResponseMs);
     
     printCSVLine("TRIP", data);
+
+    #ifdef ENABLE_CLOUD_LOGGING
+        cloudLogger.logTripResponse(millis(), faultDetectDuration_, 
+                                    relayTripDuration_, totalResponseMs);
+    #endif
 }
 
 // ============================================================================

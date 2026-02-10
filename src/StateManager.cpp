@@ -6,6 +6,11 @@
     #include "PerformanceLogger.h"
 #endif
 
+#ifdef ENABLE_CLOUD_LOGGING
+    #include "CloudLogger.h"
+    extern CloudLogger cloudLogger;
+#endif
+
 StateManager::StateManager(EnergySensor& sensor, DisplayManager& display, 
                            NetworkManager& network, SafetyManager& safety)
     : sensor_(sensor), display_(display), network_(network), safety_(safety),
@@ -99,6 +104,11 @@ void StateManager::begin() {
                 network_.sendAlert("POWER RESTORED: Mains voltage detected");
                 lastNotificationTime_ = now;
             }
+            
+            #ifdef ENABLE_CLOUD_LOGGING
+                cloudLogger.logSystemEvent("POWER_RESTORED", "Mains voltage detected - Running on AC power");
+            #endif
+            
             // Note: If throttled, we might miss "POWER RESTORED", but 3s debounce makes collision rare.
             // "POWER OUTAGE" is the critical one to ensure we catch up.
         } else {
@@ -111,6 +121,10 @@ void StateManager::begin() {
                 // Not connected OR throttled - mark as not notified so update() can catch up
                 powerOutageNotified_ = false;
             }
+            
+            #ifdef ENABLE_CLOUD_LOGGING
+                cloudLogger.logSystemEvent("POWER_OUTAGE", "Mains voltage lost - Running on battery");
+            #endif
         }
         powerWasPresent_ = powerPresent;
     };
@@ -405,11 +419,7 @@ void StateManager::updateStateBoot() {
     unsigned long now = millis();
     
     // Show startup screen for 5 seconds (increased from 3 for visibility)
-<<<<<<< HEAD
     if (now - stateEntryTime_ < 3000) {
-=======
-    if (now - stateEntryTime_ < 5000) {
->>>>>>> d5daf42ed8b9a5713e18e6e26e788715dd6b0ace
         display_.showStartup();
         return;
     }
@@ -464,7 +474,7 @@ void StateManager::updateStateNormal() {
             // Override active - only check for extreme conditions
             // Still trip on severe overcurrent to prevent fire hazard
             if (current > CURRENT_MAX * 1.5) {  // 150% of max current
-                network_.sendAlert("🔥 CRITICAL: Extreme overcurrent detected! Tripping despite override.");
+                network_.sendAlert("CRITICAL: Extreme overcurrent detected! Tripping despite override.");
                 safety_.tripRelay();
                 isOverrideActive_ = false;  // Auto-disable override
                 saveOverrideState(false);  // Save to EEPROM
@@ -685,6 +695,10 @@ void StateManager::onStateEnter() {
         case STATE_TRIP_PROTECTION:
             safety_.setRGBStatus(RGB_RED);  // Red = Trip/Fault
             safety_.tripRelay();  // Ensure relay is OFF
+            
+            #ifdef ENABLE_CLOUD_LOGGING
+                cloudLogger.logSystemEvent("TRIP", safety_.getLastFaultReason());
+            #endif
             
             if (network_.isBlynkConnected()) {
                 unsigned long now = millis();
