@@ -15,14 +15,15 @@ import seaborn as sns
 from scipy import stats
 from pathlib import Path
 
-# Configuration
-DATA_FILE = '../performance_data/latency.csv'
-OUTPUT_DIR = 'results/latency'
-FIGURE_DIR = f'{OUTPUT_DIR}/figures'
+# Directory setup
+SCRIPT_DIR = Path(__file__).resolve().parent
+DATA_FILE = SCRIPT_DIR.parent / 'performance_data' / 'latency.csv'
+OUTPUT_DIR = SCRIPT_DIR / 'results' / 'latency'
+FIGURE_DIR = OUTPUT_DIR / 'figures'
 
 # Create output directories
-Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
-Path(FIGURE_DIR).mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+FIGURE_DIR.mkdir(parents=True, exist_ok=True)
 
 # Human-centric Plot Styling
 plt.rcParams['font.family'] = 'serif'

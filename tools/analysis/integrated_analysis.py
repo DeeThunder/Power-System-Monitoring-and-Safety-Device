@@ -13,9 +13,11 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
-# Output directory
-OUTPUT_DIR = 'results'
-Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
+# Directory setup
+SCRIPT_DIR = Path(__file__).resolve().parent
+TOOLS_DIR = SCRIPT_DIR.parent
+OUTPUT_DIR = SCRIPT_DIR / 'results'
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def print_header(title):

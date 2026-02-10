@@ -22,9 +22,10 @@ class PerformanceLogger:
         self.baudrate = baudrate
         self.ser = None
         
-        # Create output directory
-        self.output_dir = "performance_data"
-        os.makedirs(self.output_dir, exist_ok=True)
+        # Create output directory relative to script
+        self.script_dir = Path(__file__).parent.resolve()
+        self.output_dir = self.script_dir / "performance_data"
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         
         # CSV file handles and writers
         # Use fixed filenames (no timestamp) for continuous logging
