@@ -4,6 +4,8 @@
 
 This is a **Smart Energy Monitoring and Safety System** designed for residential areas in Nigeria. The system monitors power parameters (Voltage, Current, Power), displays data locally on an OLED screen, transmits data to the cloud via Blynk, and includes automatic safety protection that disconnects power during fault conditions.
 
+> This project was professionally designed and implemented as a **Final Year Project (FYP)** for a client, focusing on robust industrial-grade monitoring principles and cloud-integrated data analytics.
+
 ## Features
 
 ✅ **Real-time Monitoring**: Continuous voltage, current, and power measurement  
