@@ -6,8 +6,8 @@ Captures CSV-formatted performance data from ESP32 via Serial
 and saves to separate CSV files.
 
 Usage:
-    python performance_logger.py COM11 115200
-    python performance_logger.py /dev/ttyUSB0 115200
+    python tools/performance_logger.py COM11 115200
+    python tools/performance_logger.py /dev/ttyUSB0 115200
 """
 
 import serial

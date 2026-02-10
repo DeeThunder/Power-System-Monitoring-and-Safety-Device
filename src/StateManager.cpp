@@ -404,8 +404,9 @@ void StateManager::handleMasterOverride(bool enable) {
 void StateManager::updateStateBoot() {
     unsigned long now = millis();
     
-    // Show startup screen for 3 seconds
-    if (now - stateEntryTime_ < 3000) {
+    // Show startup screen for 5 seconds (increased from 3 for visibility)
+    if (now - stateEntryTime_ < 5000) {
+        display_.showStartup();
         return;
     }
     
