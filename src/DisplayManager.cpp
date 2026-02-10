@@ -54,7 +54,11 @@ void DisplayManager::showStartup() {
     display_->drawStr((SCREEN_WIDTH - w3) / 2, 46, text3);  // Centered
 
     // Line 4: "DeeThunder Nexus" - Properly centered (WITHIN BOUNDS)
+<<<<<<< HEAD
     display_->setFont(u8g2_font_4x6_tr);
+=======
+    display_->setFont(u8g2_font_5x7_tr);
+>>>>>>> d5daf42ed8b9a5713e18e6e26e788715dd6b0ace
     const char* text4 = "DeeThunder Nexus";
     int w4 = display_->getStrWidth(text4);
     display_->drawStr((SCREEN_WIDTH - w4) / 2, 58, text4);  // Centered, y=58 is SAFE
@@ -63,6 +67,10 @@ void DisplayManager::showStartup() {
     
     #ifdef APP_DEBUG
         Serial.println("[DisplayManager] Showing startup screen");
+        Serial.printf("[DisplayManager] Text widths: %d, %d, %d, %d\n", w1, w2, w3, w4);
+        Serial.printf("[DisplayManager] X positions: %d, %d, %d, %d\n", 
+                      (SCREEN_WIDTH - w1) / 2, (SCREEN_WIDTH - w2) / 2, 
+                      (SCREEN_WIDTH - w3) / 2, (SCREEN_WIDTH - w4) / 2);
     #endif
 }
 

@@ -405,7 +405,11 @@ void StateManager::updateStateBoot() {
     unsigned long now = millis();
     
     // Show startup screen for 5 seconds (increased from 3 for visibility)
+<<<<<<< HEAD
     if (now - stateEntryTime_ < 3000) {
+=======
+    if (now - stateEntryTime_ < 5000) {
+>>>>>>> d5daf42ed8b9a5713e18e6e26e788715dd6b0ace
         display_.showStartup();
         return;
     }
