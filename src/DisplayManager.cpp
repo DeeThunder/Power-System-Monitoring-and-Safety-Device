@@ -29,24 +29,35 @@ bool DisplayManager::begin() {
 
 void DisplayManager::showStartup() {
     if (!initialized_) return;
-    
+
     display_->clearBuffer();
     
-    // Draw a stylized startup logo or text
-    // Center aligned
-    display_->setFont(u8g2_font_logisoso16_tr); // Large font
-    const char* text1 = "MAX";
+    // Draw border for debugging (to confirm display is working)
+    display_->drawFrame(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    
+    // Line 1: "POWER SAFETY" - Properly centered
+    display_->setFont(u8g2_font_6x10_tr);
+    const char* text1 = "POWER SAFETY";
     int w1 = display_->getStrWidth(text1);
-    display_->drawStr((SCREEN_WIDTH - w1) / 2, 30, text1);
+    display_->drawStr((SCREEN_WIDTH - w1) / 2, 18, text1);  // Centered
     
-    display_->setFont(u8g2_font_6x10_tr); // Small font
-    const char* text2 = "POWER MONITOR";
+    // Line 2: "MONITOR" - Properly centered
+    display_->setFont(u8g2_font_6x10_tr);
+    const char* text2 = "MONITOR";
     int w2 = display_->getStrWidth(text2);
-    display_->drawStr((SCREEN_WIDTH - w2) / 2, 48, text2);
+    display_->drawStr((SCREEN_WIDTH - w2) / 2, 32, text2);  // Centered
     
-    // Initial loading bar
-    display_->drawFrame(20, 52, SCREEN_WIDTH - 40, 6);
-    display_->drawBox(22, 54, (SCREEN_WIDTH - 44) / 2, 4); // 50% load mock
+    // Line 3: "Samuel's Project" - Properly centered
+    display_->setFont(u8g2_font_6x10_tr);
+    const char* text3 = "Samuel's Project";
+    int w3 = display_->getStrWidth(text3);
+    display_->drawStr((SCREEN_WIDTH - w3) / 2, 46, text3);  // Centered
+
+    // Line 4: "DeeThunder Nexus" - Properly centered (WITHIN BOUNDS)
+    display_->setFont(u8g2_font_4x6_tr);
+    const char* text4 = "DeeThunder Nexus";
+    int w4 = display_->getStrWidth(text4);
+    display_->drawStr((SCREEN_WIDTH - w4) / 2, 58, text4);  // Centered, y=58 is SAFE
     
     display_->sendBuffer();
     
@@ -216,7 +227,6 @@ void DisplayManager::showOfflineMode() {
     
     display_->setFont(u8g2_font_6x10_tr);
     display_->drawStr(10, 25, "OFFLINE MODE");
-    display_->drawStr(10, 40, "Logging to SD...");
     
     display_->sendBuffer();
 

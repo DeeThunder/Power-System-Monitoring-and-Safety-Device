@@ -71,8 +71,8 @@
 // ============================================================================
 
 // Voltage Thresholds (in Volts)
-#define VOLTAGE_MAX           249.0  // Over-voltage trip threshold
-#define VOLTAGE_MIN           200.0  // Under-voltage trip threshold
+#define VOLTAGE_MAX           250.0  // Over-voltage trip threshold
+#define VOLTAGE_MIN           195.0  // Under-voltage trip threshold
 #define VOLTAGE_HYSTERESIS    5.0    // Hysteresis to prevent relay chattering
 #define VOLTAGE_POWER_PRESENT_THRESHOLD 100.0  // Below this = power is off
 
@@ -100,9 +100,6 @@
 
 
 // Current Sensor Calibration (SCT-013-100: 1V output @ 100A max)
-// Hardware: 10kΩ + 10kΩ voltage divider (50% division), 100µF capacitor
-// Empirically calibrated: at 0.38A actual, factor 14.5 gave 0.44A reading
-// Fine-tuned: 14.5 × (0.38 / 0.44) ≈ 13.0
 #define CURRENT_CALIBRATION_FACTOR 13.0  // EmonLib calibration factor
 #define CURRENT_EMON_SAMPLES  1660       // Number of samples for EmonLib calcIrms
 #define CURRENT_NUM_AVERAGES  5          // Number of readings to average for stability
