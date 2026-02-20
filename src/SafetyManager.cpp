@@ -135,7 +135,7 @@ void SafetyManager::tripRelay() {
             perfLogger.startRelayTrip();
         #endif
         
-        setRelayState(true);  // De-energize relay (NO pin opens, disconnect power)
+        setRelayState(false);  // De-energize relay (OFF -> HIGH signal)
         relayTripped_ = true;
         setRGBStatus(RGB_RED);
         blinkEnabled_ = false;  // Stop blinking when tripped
@@ -151,7 +151,7 @@ void SafetyManager::tripRelay() {
 }
 
 void SafetyManager::resetRelay() {
-    setRelayState(false);  // Energize relay (NO pin closes, connect power)
+    setRelayState(true);  // Energize relay (ON -> LOW signal)
     relayTripped_ = false;
     blinkEnabled_ = false;  // Stop blinking when relay is ON
     

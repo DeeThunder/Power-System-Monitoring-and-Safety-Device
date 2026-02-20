@@ -42,7 +42,7 @@
 // Relay Configuration
 
 // LOW = Relay energizes (ON), HIGH = Relay de-energizes (OFF)
-#define RELAY_ACTIVE_HIGH     true
+#define RELAY_ACTIVE_HIGH     false
 
 // RGB LED Configuration
 #define RGB_COMMON_CATHODE    true   // Set to false if Common Anode
@@ -75,8 +75,8 @@
 // ============================================================================
 
 // Voltage Thresholds (in Volts)
-#define VOLTAGE_MAX           250.0  // Over-voltage trip threshold
-#define VOLTAGE_MIN           195.0  // Under-voltage trip threshold
+#define VOLTAGE_MAX           255.0  // Over-voltage trip threshold
+#define VOLTAGE_MIN           185.0  // Under-voltage trip threshold
 #define VOLTAGE_HYSTERESIS    5.0    // Hysteresis to prevent relay chattering
 #define VOLTAGE_POWER_PRESENT_THRESHOLD 100.0  // Below this = power is off
 
