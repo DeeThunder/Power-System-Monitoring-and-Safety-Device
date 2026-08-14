@@ -64,22 +64,9 @@ This is a **Smart Energy Monitoring and Safety System** designed for residential
 
 ## Getting Started
 
-### 1. Try in Wokwi Simulator (No Hardware Required!)
-
-You can test the entire system in your browser using Wokwi:
-
-1. Install [Wokwi for VS Code](https://marketplace.visualstudio.com/items?itemName=wokwi.wokwi-vscode)
-2. Build the project: `pio run`
-3. Press `F1` → "Wokwi: Start Simulator"
-4. Adjust potentiometers to simulate voltage/current changes
-
-See [WOKWI_SIMULATION.md](WOKWI_SIMULATION.md) for detailed testing scenarios.
-
-### 2. Install PlatformIO
-
 Install [PlatformIO](https://platformio.org/) IDE or CLI.
 
-### 3. Configure Credentials
+### Configure Credentials
 
 **IMPORTANT:** Create your `secrets.h` file by moving the template from the `docs` folder:
 
@@ -108,7 +95,7 @@ Edit `include/secrets.h` and update your credentials:
 
 > **Note:** `secrets.h` is already in `.gitignore` and will NOT be committed to version control.
 
-### 4. Configure Safety Thresholds
+### Configure Safety Thresholds
 
 Adjust thresholds in `include/config.h`:
 
@@ -118,7 +105,7 @@ Adjust thresholds in `include/config.h`:
 #define CURRENT_MAX           20.0   // Over-current trip
 ```
 
-### 5. Build and Upload
+### Build and Upload
 
 ```bash
 pio run --target upload
@@ -289,10 +276,8 @@ To switch from simulation (potentiometers) to real sensors:
 
 - **[API Documentation](docs/API_DOCUMENTATION.md)** - Complete API reference, configuration guide, calibration procedures, and troubleshooting
 - **[Technical Challenges Report](docs/TECHNICAL_CHALLENGES.md)** - Detailed analysis of all challenges faced and solutions implemented
-- **[Chapter 3: Methodology](docs/CHAPTER3_METHODOLOGY.md)** - Academic methodology documentation with diagrams and algorithms
 - **[Blynk Setup Guide](BLYNK_SETUP.md)** - Step-by-step IoT platform configuration
 - **[Hybrid Analysis Guide](docs/HYBRID_ANALYSIS_GUIDE.md)** - Guide for combining cloud and USB data for unified analysis
-- **[Wokwi Simulation Guide](WOKWI_SIMULATION.md)** - Browser-based testing without hardware
 
 ### Quick Links
 
